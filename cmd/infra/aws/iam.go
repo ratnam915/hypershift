@@ -506,14 +506,26 @@ var (
         "ec2:DescribeLaunchTemplates",
         "ec2:DescribeLaunchTemplateVersions",
         "ec2:DeleteLaunchTemplate",
-        "ec2:DeleteLaunchTemplateVersions",
-		"sqs:DeleteMessage",
-        "sqs:ReceiveMessage"
+        "ec2:DeleteLaunchTemplateVersions"
       ],
       "Resource": [
         "*"
       ],
       "Effect": "Allow"
+    },
+    {
+      "Sid": "NodePoolSQSActions",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:DeleteMessage",
+        "sqs:ReceiveMessage"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/red-hat-managed": "true"
+        }
+      }
     },
     {
       "Condition": {

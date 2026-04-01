@@ -523,7 +523,7 @@ var (
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/red-hat-managed": "true"
+          "aws:ResourceTag/red-hat": "true"
         }
       }
     },

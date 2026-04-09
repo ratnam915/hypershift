@@ -119,7 +119,12 @@ func (s *SpotTerminationHandlerTest) Run(t *testing.T, nodePool hyperv1.NodePool
 						"sqs:ReceiveMessage",
 						"sqs:DeleteMessage"
 					],
-					"Resource": "arn:aws:sqs:%s:*:*"
+					"Resource": "arn:aws:sqs:%s:*:*",
+					"Condition": {
+						"StringEquals": {
+							"aws:ResourceTag/red-hat": "true"
+						}
+					}
 				}
 			]
 		}`, s.clusterOpts.AWSPlatform.Region)

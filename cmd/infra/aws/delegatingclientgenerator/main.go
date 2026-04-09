@@ -392,6 +392,7 @@ var extendedAPIs = map[string][]string{
 		"CreateQueue",
 		"DeleteQueue",
 		"SendMessage",
+		"TagQueue",
 	},
 	"route53": {
 		"AssociateVPCWithHostedZone",

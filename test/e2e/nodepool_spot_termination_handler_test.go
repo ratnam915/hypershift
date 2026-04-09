@@ -148,6 +148,9 @@ func (s *SpotTerminationHandlerTest) Run(t *testing.T, nodePool hyperv1.NodePool
 		t.Logf("Creating SQS queue %s", sqsQueueName)
 		createQueueResult, err := sqsClient.CreateQueue(s.ctx, &sqs.CreateQueueInput{
 			QueueName: aws.String(sqsQueueName),
+			Tags: map[string]string{
+				"red-hat": "true",
+			},
 		})
 		if err != nil {
 			t.Fatalf("failed to create SQS queue %s: %v", sqsQueueName, err)

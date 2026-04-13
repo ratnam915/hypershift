@@ -669,6 +669,7 @@ func controlPlaneOperatorPolicy(hostedZone string, sharedVPC bool) policyBinding
 					"Action": [
 					    "ec2:DescribeVpcEndpoints",
 						"ec2:CreateTags",
+						"ec2:DeleteTags",
 						"ec2:CreateSecurityGroup",
 						"ec2:AuthorizeSecurityGroupIngress",
 						"ec2:AuthorizeSecurityGroupEgress",
@@ -694,6 +695,7 @@ func controlPlaneOperatorPolicy(hostedZone string, sharedVPC bool) policyBinding
 						"ec2:ModifyVpcEndpoint",
 						"ec2:DeleteVpcEndpoints",
 						"ec2:CreateTags",
+						"ec2:DeleteTags",
 						"route53:ListHostedZones",
 						"ec2:CreateSecurityGroup",
 						"ec2:AuthorizeSecurityGroupIngress",

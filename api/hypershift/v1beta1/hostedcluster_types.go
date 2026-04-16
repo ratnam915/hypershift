@@ -2205,6 +2205,16 @@ type AutoNodeStatus struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	NodeClaimCount *int32 `json:"nodeClaimCount,omitempty"`
+
+	// vcpus is the total number of virtual CPUs across all Karpenter-managed nodes
+	// that have registered and reported capacity. This is the sum of CPU capacity
+	// from each NodeClaim whose corresponding node exists (status.nodeName is set).
+	// This value is 0 when no Karpenter nodes are provisioned.
+	// Used by the metrics collector for billing aggregation.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	// +optional
+	VCPUs *int32 `json:"vcpus,omitempty"`
 }
 
 // PlatformStatus contains platform-specific status

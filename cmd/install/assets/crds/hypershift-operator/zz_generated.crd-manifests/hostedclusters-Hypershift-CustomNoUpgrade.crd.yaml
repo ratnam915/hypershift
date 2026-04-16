@@ -8344,6 +8344,17 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  vcpus:
+                    description: |-
+                      vcpus is the total number of virtual CPUs across all Karpenter-managed nodes
+                      that have registered and reported capacity. This is the sum of CPU capacity
+                      from each NodeClaim whose corresponding node exists (status.nodeName is set).
+                      This value is 0 when no Karpenter nodes are provisioned.
+                      Used by the metrics collector for billing aggregation.
+                    format: int32
+                    maximum: 1000000
+                    minimum: 0
+                    type: integer
                 type: object
               conditions:
                 description: |-

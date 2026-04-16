@@ -355,12 +355,18 @@ func (c *nodePoolsMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 		for k := range hclusters.Items {
 			hcluster := &hclusters.Items[k]
 
-			hclusterPathToData[hcluster.Namespace+"/"+hcluster.Name] = &hclusterData{
+			data := &hclusterData{
 				id:        hcluster.Spec.ClusterID,
 				namespace: hcluster.Namespace,
 				name:      hcluster.Name,
 				platform:  hcluster.Spec.Platform.Type,
 			}
+			// Seed with Karpenter-managed vCPUs from AutoNode status.
+			// Native NodePool vCPUs accumulate on top in the NodePool loop below.
+			if hcluster.Status.AutoNode.VCPUs != nil {
+				data.vCpusCount = *hcluster.Status.AutoNode.VCPUs
+			}
+			hclusterPathToData[hcluster.Namespace+"/"+hcluster.Name] = data
 		}
 	}
 

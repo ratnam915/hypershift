@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -374,4 +375,93 @@ func TestReconcileCRDsConcurrentAccess(t *testing.T) {
 		g.Expect(crd.ResourceVersion).To(BeEmpty(),
 			"global CRD %q had resourceVersion set by concurrent reconcileCRDs calls", crd.Name)
 	}
+}
+
+func TestSumNodeClaimVCPUs(t *testing.T) {
+	tests := []struct {
+		name       string
+		nodeClaims []karpenterv1.NodeClaim
+		liveNodes  map[string]struct{}
+		expected   int32
+	}{
+		{
+			name:       "When there are no NodeClaims, it should return 0",
+			nodeClaims: nil,
+			liveNodes:  nil,
+			expected:   0,
+		},
+		{
+			name: "When NodeClaims have live nodes with capacity, it should sum their CPUs",
+			nodeClaims: []karpenterv1.NodeClaim{
+				nodeClaimWithCapacity("nc-1", "node-1", "4"),
+				nodeClaimWithCapacity("nc-2", "node-2", "8"),
+				nodeClaimWithCapacity("nc-3", "node-3", "16"),
+			},
+			liveNodes: map[string]struct{}{"node-1": {}, "node-2": {}, "node-3": {}},
+			expected:  28,
+		},
+		{
+			name: "When NodeClaims have no registered node, it should skip them",
+			nodeClaims: []karpenterv1.NodeClaim{
+				nodeClaimWithCapacity("nc-1", "", "4"),
+				nodeClaimWithCapacity("nc-2", "", "8"),
+			},
+			liveNodes: nil,
+			expected:  0,
+		},
+		{
+			name: "When NodeClaims have empty capacity, it should skip them",
+			nodeClaims: []karpenterv1.NodeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "nc-1"},
+					Status:     karpenterv1.NodeClaimStatus{NodeName: "node-1"},
+				},
+			},
+			liveNodes: map[string]struct{}{"node-1": {}},
+			expected:  0,
+		},
+		{
+			name: "When there is a mix of registered and unregistered NodeClaims, it should only count registered ones",
+			nodeClaims: []karpenterv1.NodeClaim{
+				nodeClaimWithCapacity("nc-1", "node-1", "4"),
+				nodeClaimWithCapacity("nc-2", "", "8"),
+				nodeClaimWithCapacity("nc-3", "node-3", "16"),
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "nc-4"},
+					Status:     karpenterv1.NodeClaimStatus{NodeName: "node-4"},
+				},
+			},
+			liveNodes: map[string]struct{}{"node-1": {}, "node-3": {}, "node-4": {}},
+			expected:  20,
+		},
+		{
+			name: "When NodeClaim references a node that no longer exists, it should not count it",
+			nodeClaims: []karpenterv1.NodeClaim{
+				nodeClaimWithCapacity("nc-1", "node-1", "4"),
+				nodeClaimWithCapacity("nc-2", "node-2", "8"),
+			},
+			liveNodes: map[string]struct{}{"node-1": {}},
+			expected:  4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(sumNodeClaimVCPUs(tt.nodeClaims, tt.liveNodes)).To(Equal(tt.expected))
+		})
+	}
+}
+
+func nodeClaimWithCapacity(name, nodeName, cpus string) karpenterv1.NodeClaim {
+	nc := karpenterv1.NodeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Status: karpenterv1.NodeClaimStatus{
+			NodeName: nodeName,
+			Capacity: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(cpus),
+			},
+		},
+	}
+	return nc
 }

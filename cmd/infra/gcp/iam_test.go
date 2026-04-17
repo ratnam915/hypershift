@@ -1,6 +1,9 @@
 package gcp
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -421,6 +424,146 @@ func TestIsAlreadyExistsError(t *testing.T) {
 			got := isAlreadyExistsError(tt.err)
 			if got != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestLoadAndValidateJWKS(t *testing.T) {
+	tests := []struct {
+		name          string
+		fileContent   string
+		setupFile     bool
+		expectedError string
+		expectedJSON  bool
+	}{
+		{
+			name:         "When valid JWKS file is provided it should return the content",
+			fileContent:  `{"keys": [{"kty": "RSA", "use": "sig", "kid": "test-key"}]}`,
+			setupFile:    true,
+			expectedJSON: true,
+		},
+		{
+			name:          "When file does not exist it should return error",
+			setupFile:     false,
+			expectedError: "failed to read JWKS file",
+		},
+		{
+			name:          "When file contains invalid JSON it should return error",
+			fileContent:   `{not valid json}`,
+			setupFile:     true,
+			expectedError: "JWKS file contains invalid JSON",
+		},
+		{
+			name:         "When file contains empty JSON object it should return it",
+			fileContent:  `{}`,
+			setupFile:    true,
+			expectedJSON: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var filePath string
+			if tt.setupFile {
+				tmpDir := t.TempDir()
+				filePath = filepath.Join(tmpDir, "jwks.json")
+				if err := os.WriteFile(filePath, []byte(tt.fileContent), 0644); err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+			} else {
+				filePath = filepath.Join(t.TempDir(), "non-existent.json")
+			}
+
+			result, err := loadAndValidateJWKS(filePath)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.expectedError)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+					return
+				}
+				if tt.expectedJSON && result != tt.fileContent {
+					t.Errorf("expected content %q, got %q", tt.fileContent, result)
+				}
+			}
+		})
+	}
+}
+
+func TestCompareJWKS(t *testing.T) {
+	manager := &IAMManager{
+		logger: logr.Discard(),
+	}
+
+	tests := []struct {
+		name     string
+		jwks1    string
+		jwks2    string
+		expected bool
+	}{
+		{
+			name:     "When both are empty it should return true",
+			jwks1:    "",
+			jwks2:    "",
+			expected: true,
+		},
+		{
+			name:     "When both are whitespace-only it should return true",
+			jwks1:    "  ",
+			jwks2:    "  \t ",
+			expected: true,
+		},
+		{
+			name:     "When first is empty and second is not it should return false",
+			jwks1:    "",
+			jwks2:    `{"keys": []}`,
+			expected: false,
+		},
+		{
+			name:     "When first is non-empty and second is empty it should return false",
+			jwks1:    `{"keys": []}`,
+			jwks2:    "",
+			expected: false,
+		},
+		{
+			name:     "When both contain identical JSON it should return true",
+			jwks1:    `{"keys": [{"kty": "RSA"}]}`,
+			jwks2:    `{"keys": [{"kty": "RSA"}]}`,
+			expected: true,
+		},
+		{
+			name:     "When both contain semantically equal JSON with different formatting it should return true",
+			jwks1:    `{"keys":[{"kty":"RSA"}]}`,
+			jwks2:    `{ "keys" : [ { "kty" : "RSA" } ] }`,
+			expected: true,
+		},
+		{
+			name:     "When JSON content differs it should return false",
+			jwks1:    `{"keys": [{"kty": "RSA"}]}`,
+			jwks2:    `{"keys": [{"kty": "EC"}]}`,
+			expected: false,
+		},
+		{
+			name:     "When first contains invalid JSON it should return false",
+			jwks1:    `{not json}`,
+			jwks2:    `{"keys": []}`,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := manager.compareJWKS(tt.jwks1, tt.jwks2)
+			if got != tt.expected {
+				t.Errorf("compareJWKS(%q, %q) = %v, want %v", tt.jwks1, tt.jwks2, got, tt.expected)
 			}
 		})
 	}

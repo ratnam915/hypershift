@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/hypershift/support/releaseinfo/registryclient"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/dockerv1client"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
 
@@ -40,21 +39,17 @@ type FakeManifest struct {
 }
 
 func (f *FakeRegistryClientImageMetadataProvider) GetManifest(ctx context.Context, imageRef string, pullSecret []byte) (distribution.Manifest, error) {
-	_, _, err := registryclient.GetRepoSetup(ctx, imageRef, pullSecret)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve manifest %s: %w", imageRef, err)
-	}
 	return &FakeManifest{
 		f.MediaType,
 	}, nil
 }
 
 func (f *FakeRegistryClientImageMetadataProvider) GetDigest(ctx context.Context, imageRef string, pullSecret []byte) (digest.Digest, *reference.DockerImageReference, error) {
-	var err error
-	_, f.Ref, err = registryclient.GetRepoSetup(ctx, imageRef, pullSecret)
+	ref, err := reference.Parse(imageRef)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to retrieve manifest %s: %w", imageRef, err)
+		return "", nil, fmt.Errorf("failed to parse image reference %s: %w", imageRef, err)
 	}
+	f.Ref = &ref
 	f.Ref.ID = f.Digest
 	return digest.Digest(f.Digest), f.Ref, nil
 }

@@ -5,7 +5,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/docker/distribution"
 	"github.com/openshift/hypershift/support/releaseinfo/registryclient"
+	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -17,12 +19,21 @@ type ProviderWithOpenShiftImageRegistryOverridesDecorator struct {
 	OpenShiftImageRegistryOverrides map[string][]string
 	mirroredReleaseImage            string
 
+	// repoSetupFn is an injectable function for verifying mirror availability.
+	// When nil, defaults to registryclient.GetRepoSetup.
+	repoSetupFn func(ctx context.Context, imageRef string, pullSecret []byte) (distribution.Repository, *reference.DockerImageReference, error)
+
 	lock sync.Mutex
 }
 
 func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) Lookup(ctx context.Context, image string, pullSecret []byte) (*ReleaseImage, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
+
+	repoSetup := p.repoSetupFn
+	if repoSetup == nil {
+		repoSetup = registryclient.GetRepoSetup
+	}
 
 	logger := ctrl.LoggerFrom(ctx)
 
@@ -35,7 +46,7 @@ func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) Lookup(ctx contex
 				releaseImage, err := p.Delegate.Lookup(ctx, replacedImage, pullSecret)
 				if releaseImage != nil {
 					// Verify mirror image availability.
-					if _, _, err = registryclient.GetRepoSetup(ctx, replacedImage, pullSecret); err == nil {
+					if _, _, err = repoSetup(ctx, replacedImage, pullSecret); err == nil {
 						p.mirroredReleaseImage = replacedImage
 						return releaseImage, nil
 					}

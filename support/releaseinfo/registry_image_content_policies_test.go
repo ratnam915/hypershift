@@ -1,13 +1,15 @@
 package releaseinfo
 
 import (
-	"os"
+	"context"
 	"sync"
 	"testing"
 
 	. "github.com/onsi/gomega"
 
+	"github.com/docker/distribution"
 	imagev1 "github.com/openshift/api/image/v1"
+	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
 )
 
 func TestProviderWithOpenShiftImageRegistryOverridesDecorator_Lookup(t *testing.T) {
@@ -34,17 +36,19 @@ func TestProviderWithOpenShiftImageRegistryOverridesDecorator_Lookup(t *testing.
 	provider := &ProviderWithOpenShiftImageRegistryOverridesDecorator{
 		Delegate: delegate,
 		OpenShiftImageRegistryOverrides: map[string][]string{
-			canonicalReleaseImage: []string{mirroredReleaseImage},
+			canonicalReleaseImage: {mirroredReleaseImage},
+		},
+		// Mock repoSetupFn to avoid real network calls for mirror verification.
+		repoSetupFn: func(ctx context.Context, imageRef string, pullSecret []byte) (distribution.Repository, *reference.DockerImageReference, error) {
+			ref, _ := reference.Parse(imageRef)
+			return nil, &ref, nil
 		},
 		lock: sync.Mutex{},
 	}
 
-	pullSecret, err := os.ReadFile("../../hack/dev/fakePullSecret.json")
-	if err != nil {
-		t.Fatalf("failed to read manifests file: %v", err)
-	}
+	pullSecret := []byte(`{"auths":{}}`)
 	// Call the Lookup method and validate GetMirroredReleaseImage.
-	_, err = provider.Lookup(t.Context(), canonicalReleaseImage, pullSecret)
+	_, err := provider.Lookup(t.Context(), canonicalReleaseImage, pullSecret)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(provider.GetMirroredReleaseImage()).To(Equal(mirroredReleaseImage))
 }

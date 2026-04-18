@@ -433,11 +433,12 @@ func TestImageExistsFnGuestCluster(t *testing.T) {
 			pullSecret:     []byte("12345"),
 		},
 		{
-			name:           "Management cluster should fail when image not found",
-			olmcatalog:     hyperv1.ManagementOLMCatalogPlacement,
-			expectedExists: false,
-			expectedError:  true,
-			pullSecret:     []byte("12345"),
+			name:               "Management cluster should fail when image not found",
+			olmcatalog:         hyperv1.ManagementOLMCatalogPlacement,
+			expectedExists:     false,
+			expectedError:      true,
+			imageMetadataError: errors.New("image not found"),
+			pullSecret:         []byte("12345"),
 		},
 		{
 			name:               "Management cluster with manifest unknown error should return false",

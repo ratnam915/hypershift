@@ -56,6 +56,7 @@ func TestControllerName(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	const (
 		testNamespace     = "clusters-test-hcp"
 		testServiceName   = "private-router"
@@ -205,6 +206,32 @@ func TestReconcile(t *testing.T) {
 			expectPLSCreated: false,
 		},
 		{
+			name:        "When HCP has nil Azure platform it should return an error",
+			serviceName: testServiceName,
+			requestName: testServiceName,
+			service:     defaultService(),
+			hcp: func() *hyperv1.HostedControlPlane {
+				hcp := defaultHCP()
+				hcp.Spec.Platform.Azure = nil
+				return hcp
+			}(),
+			expectError:      true,
+			expectPLSCreated: false,
+		},
+		{
+			name:        "When HCP has empty private connectivity type it should return an error",
+			serviceName: testServiceName,
+			requestName: testServiceName,
+			service:     defaultService(),
+			hcp: func() *hyperv1.HostedControlPlane {
+				hcp := defaultHCP()
+				hcp.Spec.Platform.Azure.Private.Type = ""
+				return hcp
+			}(),
+			expectError:      true,
+			expectPLSCreated: false,
+		},
+		{
 			name:        "When CR already exists, it should update loadBalancerIP",
 			serviceName: testServiceName,
 			requestName: testServiceName,
@@ -240,8 +267,9 @@ func TestReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewGomegaWithT(t)
-			ctx := context.Background()
+			ctx := t.Context()
 
 			// Create fake client with initial objects
 			scheme := runtime.NewScheme()
@@ -404,6 +432,34 @@ func TestBaseDomainFromServices(t *testing.T) {
 			g.Expect(result).To(Equal(tt.expected))
 		})
 	}
+}
+
+func TestReconcile_WhenServiceNotFound_ItShouldReturnNoError(t *testing.T) {
+	t.Parallel()
+	g := NewGomegaWithT(t)
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = hyperv1.AddToScheme(scheme)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	observer := &AzurePrivateLinkServiceObserver{
+		Client:           fakeClient,
+		ControllerName:   "test-observer",
+		ServiceName:      "private-router",
+		ServiceNamespace: "test-ns",
+		HCPNamespace:     "test-ns",
+	}
+
+	result, err := observer.Reconcile(t.Context(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "private-router", Namespace: "test-ns"},
+	})
+
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(result.IsZero()).To(BeTrue())
 }
 
 // mockCreateOrUpdateProvider implements CreateOrUpdateProvider for testing

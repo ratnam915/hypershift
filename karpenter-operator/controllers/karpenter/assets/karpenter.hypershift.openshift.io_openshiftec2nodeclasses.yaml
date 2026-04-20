@@ -21,7 +21,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
-    name: v1beta1
+    name: v1
     schema:
       openAPIV3Schema:
         description: OpenshiftEC2NodeClass defines the desired state of OpenshiftEC2NodeClass.
@@ -535,6 +535,7 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
               conditions:
+                description: conditions contains signals for health and readiness.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

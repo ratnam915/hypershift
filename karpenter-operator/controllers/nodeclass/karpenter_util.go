@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:karpenter-operator/controllers/nodeclass/karpenter_util.go
 package nodeclass
-========
-package v1
->>>>>>>> 7537c70185 (feat(api): promote OpenshiftEC2NodeClass API from v1beta1 to v1):api/karpenter/v1/util.go
 
 import (
 	"fmt"

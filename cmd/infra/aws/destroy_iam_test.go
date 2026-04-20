@@ -466,7 +466,7 @@ func TestDestroyOIDCResources(t *testing.T) {
 			errorContains: "api error",
 		},
 		{
-			name: "When DeleteOpenIDConnectProvider fails with a non-NSE error it should return the error",
+			name: "When DeleteOpenIDConnectProvider fails with a non-NSE error it should still attempt role cleanup and return the error",
 			setupMock: func(m *awsapi.MockIAMAPI) {
 				gomock.InOrder(
 					m.EXPECT().ListOpenIDConnectProviders(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -477,6 +477,9 @@ func TestDestroyOIDCResources(t *testing.T) {
 						}, nil),
 					m.EXPECT().DeleteOpenIDConnectProvider(gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(nil, errors.New("permission denied")),
+					// continues to role cleanup; shared-role + 9 component roles all not found
+					m.EXPECT().GetRole(gomock.Any(), gomock.Any(), gomock.Any()).
+						Return(nil, noSuchEntity()).Times(totalRoleChecks),
 				)
 			},
 			expectError:   true,
@@ -546,12 +549,14 @@ func TestDestroySharedVPCRoles(t *testing.T) {
 			},
 		},
 		{
-			name:                  "When destroying the ingress role fails it should return the error",
+			name:                  "When destroying the ingress role fails it should still attempt control-plane role and return the error",
 			privateZonesInCluster: false,
 			setupIAMMock:          func(_ *awsapi.MockIAMAPI) {},
 			setupVPCOwnerMock: func(m *awsapi.MockIAMAPI) {
 				m.EXPECT().GetRole(gomock.Any(), &iam.GetRoleInput{RoleName: aws.String(ingressRoleName)}, gomock.Any()).
 					Return(nil, errors.New("api error"))
+				m.EXPECT().GetRole(gomock.Any(), &iam.GetRoleInput{RoleName: aws.String(cpRoleName)}, gomock.Any()).
+					Return(nil, noSuchEntity())
 			},
 			expectError:   true,
 			errorContains: "cannot check for existing role",

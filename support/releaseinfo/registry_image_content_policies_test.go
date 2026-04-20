@@ -7,9 +7,11 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/docker/distribution"
-	imagev1 "github.com/openshift/api/image/v1"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
+
+	imagev1 "github.com/openshift/api/image/v1"
+
+	"github.com/docker/distribution"
 )
 
 func TestProviderWithOpenShiftImageRegistryOverridesDecorator_Lookup(t *testing.T) {
@@ -40,7 +42,10 @@ func TestProviderWithOpenShiftImageRegistryOverridesDecorator_Lookup(t *testing.
 		},
 		// Mock repoSetupFn to avoid real network calls for mirror verification.
 		repoSetupFn: func(ctx context.Context, imageRef string, pullSecret []byte) (distribution.Repository, *reference.DockerImageReference, error) {
-			ref, _ := reference.Parse(imageRef)
+			ref, err := reference.Parse(imageRef)
+			if err != nil {
+				return nil, nil, err
+			}
 			return nil, &ref, nil
 		},
 		lock: sync.Mutex{},

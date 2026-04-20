@@ -8,13 +8,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/docker/distribution"
-	"github.com/opencontainers/go-digest"
-
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	"github.com/openshift/hypershift/support/api"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/dockerv1client"
-	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
+	"github.com/openshift/hypershift/support/util/fakeimagemetadataprovider"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -576,8 +573,8 @@ func TestGetImageArchitecture(t *testing.T) {
 			name:            "When providing an empty pull secret it should return an error",
 			image:           "quay.io/openshift-release-dev/ocp-release:4.16.11-ppc64le",
 			pullSecretBytes: []byte(""),
-			imageMetadataProvider: &fakeImageMetadataProviderForTest{
-				err: fmt.Errorf("empty pull secret"),
+			imageMetadataProvider: &fakeimagemetadataprovider.FakeRegistryClientImageMetadataProvider{
+				Err: fmt.Errorf("empty pull secret"),
 			},
 			expectedArch: "",
 			expectErr:    true,
@@ -586,8 +583,8 @@ func TestGetImageArchitecture(t *testing.T) {
 			name:            "When resolving an amd64 image it should return AMD64",
 			image:           "quay.io/openshift-release-dev/ocp-release:4.16.10-x86_64",
 			pullSecretBytes: pullSecretBytes,
-			imageMetadataProvider: &fakeImageMetadataProviderForTest{
-				result: &dockerv1client.DockerImageConfig{Architecture: "amd64"},
+			imageMetadataProvider: &fakeimagemetadataprovider.FakeRegistryClientImageMetadataProvider{
+				Result: &dockerv1client.DockerImageConfig{Architecture: "amd64"},
 			},
 			expectedArch: hyperv1.AMD64,
 			expectErr:    false,
@@ -596,8 +593,8 @@ func TestGetImageArchitecture(t *testing.T) {
 			name:            "When resolving a ppc64le image it should return PPC64LE",
 			image:           "quay.io/openshift-release-dev/ocp-release:4.16.11-ppc64le",
 			pullSecretBytes: pullSecretBytes,
-			imageMetadataProvider: &fakeImageMetadataProviderForTest{
-				result: &dockerv1client.DockerImageConfig{Architecture: "ppc64le"},
+			imageMetadataProvider: &fakeimagemetadataprovider.FakeRegistryClientImageMetadataProvider{
+				Result: &dockerv1client.DockerImageConfig{Architecture: "ppc64le"},
 			},
 			expectedArch: hyperv1.PPC64LE,
 			expectErr:    false,
@@ -653,9 +650,9 @@ func TestDetermineHostedClusterPayloadArch(t *testing.T) {
 					corev1.DockerConfigJsonKey: pullSecretBytes,
 				},
 			},
-			imageMetadataProvider: &fakeImageMetadataProviderForTest{
-				result:    &dockerv1client.DockerImageConfig{Architecture: "amd64"},
-				mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+			imageMetadataProvider: &fakeimagemetadataprovider.FakeRegistryClientImageMetadataProvider{
+				Result:    &dockerv1client.DockerImageConfig{Architecture: "amd64"},
+				MediaType: "application/vnd.docker.distribution.manifest.v2+json",
 			},
 			expectedPayloadType: hyperv1.AMD64,
 			expectErr:           false,
@@ -684,9 +681,9 @@ func TestDetermineHostedClusterPayloadArch(t *testing.T) {
 					corev1.DockerConfigJsonKey: pullSecretBytes,
 				},
 			},
-			imageMetadataProvider: &fakeImageMetadataProviderForTest{
-				result:    &dockerv1client.DockerImageConfig{Architecture: "multi"},
-				mediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+			imageMetadataProvider: &fakeimagemetadataprovider.FakeRegistryClientImageMetadataProvider{
+				Result:    &dockerv1client.DockerImageConfig{Architecture: "multi"},
+				MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
 			},
 			expectedPayloadType: hyperv1.Multi,
 			expectErr:           false,
@@ -710,44 +707,6 @@ func TestDetermineHostedClusterPayloadArch(t *testing.T) {
 			}
 		})
 	}
-}
-
-// fakeImageMetadataProviderForTest is a minimal ImageMetadataProvider for unit tests.
-type fakeImageMetadataProviderForTest struct {
-	result    *dockerv1client.DockerImageConfig
-	mediaType string
-	err       error
-}
-
-func (f *fakeImageMetadataProviderForTest) ImageMetadata(_ context.Context, _ string, _ []byte) (*dockerv1client.DockerImageConfig, error) {
-	return f.result, f.err
-}
-
-func (f *fakeImageMetadataProviderForTest) GetManifest(_ context.Context, _ string, _ []byte) (distribution.Manifest, error) {
-	return &fakeManifestForTest{mediaType: f.mediaType}, f.err
-}
-
-func (f *fakeImageMetadataProviderForTest) GetDigest(_ context.Context, imageRef string, _ []byte) (digest.Digest, *reference.DockerImageReference, error) {
-	ref, _ := reference.Parse(imageRef)
-	return "", &ref, f.err
-}
-
-func (f *fakeImageMetadataProviderForTest) GetMetadata(_ context.Context, _ string, _ []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
-	return f.result, nil, nil, f.err
-}
-
-func (f *fakeImageMetadataProviderForTest) GetOverride(_ context.Context, imageRef string, _ []byte) (*reference.DockerImageReference, error) {
-	ref, _ := reference.Parse(imageRef)
-	return &ref, f.err
-}
-
-type fakeManifestForTest struct {
-	mediaType string
-}
-
-func (f *fakeManifestForTest) References() []distribution.Descriptor { return nil }
-func (f *fakeManifestForTest) Payload() (string, []byte, error) {
-	return f.mediaType, []byte("{}"), nil
 }
 
 func TestIsIPv4CIDR(t *testing.T) {

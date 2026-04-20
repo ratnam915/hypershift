@@ -501,8 +501,8 @@ func TestSeekOverride(t *testing.T) {
 		},
 	}
 
-	// Mock MetadataGetter that always succeeds, avoiding real network calls.
-	fakeMetadataGetter := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
+	// Mock metadataGetter that always succeeds, avoiding real network calls.
+	fakeGetter := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
 		return &dockerv1client.DockerImageConfig{}, nil, nil, nil
 	}
 
@@ -511,7 +511,11 @@ func TestSeekOverride(t *testing.T) {
 			ctx := t.Context()
 			g := NewGomegaWithT(t)
 			pullSecret := []byte(`{"auths":{}}`)
-			imgRef := SeekOverride(ctx, tc.overrides, tc.imageRef, pullSecret, fakeMetadataGetter)
+			provider := &RegistryClientImageMetadataProvider{
+				OpenShiftImageRegistryOverrides: tc.overrides,
+				metadataGetter:                  fakeGetter,
+			}
+			imgRef := provider.seekOverride(ctx, tc.imageRef, pullSecret)
 			g.Expect(imgRef).To(Equal(tc.expectedImgRef), fmt.Sprintf("Expected image reference to be equal to: %v, \nbut got: %v", tc.expectedImgRef, imgRef))
 		})
 	}
@@ -938,8 +942,8 @@ func TestSeekOverrideWithCache(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Mock MetadataGetter that simulates an unavailable mirror, avoiding real network calls.
-	failingMetadataGetter := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
+	// Mock metadataGetter that simulates an unavailable mirror, avoiding real network calls.
+	failingGetter := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
 		return nil, nil, nil, fmt.Errorf("simulated mirror unavailable")
 	}
 
@@ -955,12 +959,17 @@ func TestSeekOverrideWithCache(t *testing.T) {
 			Tag:       "latest",
 		}
 
+		provider := &RegistryClientImageMetadataProvider{
+			OpenShiftImageRegistryOverrides: overrides,
+			metadataGetter:                  failingGetter,
+		}
+
 		// First call will attempt verification (which will fail via mock)
 		// and cache the result
-		result1 := SeekOverride(ctx, overrides, parsedRef, []byte(`{"auths":{}}`), failingMetadataGetter)
+		result1 := provider.seekOverride(ctx, parsedRef, []byte(`{"auths":{}}`))
 
 		// Second call should use cache and return same result without network call
-		result2 := SeekOverride(ctx, overrides, parsedRef, []byte(`{"auths":{}}`), failingMetadataGetter)
+		result2 := provider.seekOverride(ctx, parsedRef, []byte(`{"auths":{}}`))
 
 		g.Expect(result1).To(Equal(result2))
 
@@ -972,13 +981,6 @@ func TestSeekOverrideWithCache(t *testing.T) {
 	})
 
 	t.Run("cache respects different mirror URLs", func(t *testing.T) {
-		overrides1 := map[string][]string{
-			"quay.io": {"mirror1.example.com"},
-		}
-		overrides2 := map[string][]string{
-			"quay.io": {"mirror2.example.com"},
-		}
-
 		parsedRef := reference.DockerImageReference{
 			Registry:  "quay.io",
 			Namespace: "test",
@@ -987,10 +989,22 @@ func TestSeekOverrideWithCache(t *testing.T) {
 		}
 
 		// Test with first mirror
-		SeekOverride(ctx, overrides1, parsedRef, []byte(`{"auths":{}}`), failingMetadataGetter)
+		provider1 := &RegistryClientImageMetadataProvider{
+			OpenShiftImageRegistryOverrides: map[string][]string{
+				"quay.io": {"mirror1.example.com"},
+			},
+			metadataGetter: failingGetter,
+		}
+		provider1.seekOverride(ctx, parsedRef, []byte(`{"auths":{}}`))
 
 		// Test with second mirror
-		SeekOverride(ctx, overrides2, parsedRef, []byte(`{"auths":{}}`), failingMetadataGetter)
+		provider2 := &RegistryClientImageMetadataProvider{
+			OpenShiftImageRegistryOverrides: map[string][]string{
+				"quay.io": {"mirror2.example.com"},
+			},
+			metadataGetter: failingGetter,
+		}
+		provider2.seekOverride(ctx, parsedRef, []byte(`{"auths":{}}`))
 
 		// Both mirrors should be cached separately
 		pullSecret := []byte(`{"auths":{}}`)
@@ -1002,7 +1016,7 @@ func TestSeekOverrideWithCache(t *testing.T) {
 	})
 }
 
-func TestSeekOverrideTimeout(t *testing.T) {
+func TestSeekOverrideFallsBackWhenMirrorUnavailable(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Reset the global cache
@@ -1012,8 +1026,14 @@ func TestSeekOverrideTimeout(t *testing.T) {
 
 	ctx := context.Background()
 
-	overrides := map[string][]string{
-		"quay.io": {"nonexistent-mirror.invalid"},
+	provider := &RegistryClientImageMetadataProvider{
+		OpenShiftImageRegistryOverrides: map[string][]string{
+			"quay.io": {"nonexistent-mirror.invalid"},
+		},
+		// Mock metadataGetter that simulates an unavailable mirror, avoiding real network calls.
+		metadataGetter: func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
+			return nil, nil, nil, fmt.Errorf("simulated mirror unavailable")
+		},
 	}
 
 	parsedRef := reference.DockerImageReference{
@@ -1023,13 +1043,8 @@ func TestSeekOverrideTimeout(t *testing.T) {
 		Tag:       "latest",
 	}
 
-	// Mock MetadataGetter that simulates an unavailable mirror, avoiding real network calls.
-	failingMetadataGetter := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
-		return nil, nil, nil, fmt.Errorf("simulated mirror unavailable")
-	}
-
 	// This should fail verification and fallback to original image
-	result := SeekOverride(ctx, overrides, parsedRef, []byte(`{"auths":{}}`), failingMetadataGetter)
+	result := provider.seekOverride(ctx, parsedRef, []byte(`{"auths":{}}`))
 
 	// Should return original reference since mirror is invalid
 	g.Expect(result.Registry).To(Equal("quay.io"))

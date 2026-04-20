@@ -5,11 +5,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/docker/distribution"
 	"github.com/openshift/hypershift/support/releaseinfo/registryclient"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/docker/distribution"
 )
 
 var _ ProviderWithOpenShiftImageRegistryOverrides = (*ProviderWithOpenShiftImageRegistryOverridesDecorator)(nil)

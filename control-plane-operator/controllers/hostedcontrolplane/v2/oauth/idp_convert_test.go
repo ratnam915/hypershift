@@ -33,6 +33,10 @@ func TestOpenIDProviderConversion(t *testing.T) {
 	}, openIDURLsTTL)
 	// Pre-populate the OIDC password grant check cache to avoid the token endpoint call.
 	oidcPasswordCheckCache.Set("1", false, oidcPasswordTTL)
+	t.Cleanup(func() {
+		openIDURLsCache.Delete("https://accounts.google.com/.well-known/openid-configuration")
+		oidcPasswordCheckCache.Delete("1")
+	})
 
 	// Define common inputs
 	groupsInput := []configv1.OpenIDClaim{"groups"}

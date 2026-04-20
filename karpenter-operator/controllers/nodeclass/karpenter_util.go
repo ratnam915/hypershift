@@ -1,10 +1,14 @@
+<<<<<<<< HEAD:karpenter-operator/controllers/nodeclass/karpenter_util.go
 package nodeclass
+========
+package v1
+>>>>>>>> 7537c70185 (feat(api): promote OpenshiftEC2NodeClass API from v1beta1 to v1):api/karpenter/v1/util.go
 
 import (
 	"fmt"
 	"strings"
 
-	hyperkarpenterv1 "github.com/openshift/hypershift/api/karpenter/v1beta1"
+	hyperkarpenterv1 "github.com/openshift/hypershift/api/karpenter/v1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 

@@ -1,4 +1,4 @@
-package v1beta1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -609,8 +609,7 @@ const (
 // OpenshiftEC2NodeClassStatus defines the observed state of OpenshiftEC2NodeClass.
 // +kubebuilder:validation:MinProperties=1
 type OpenshiftEC2NodeClassStatus struct {
-	// conditions contain signals for health and readiness.
-
+	// conditions contains signals for health and readiness.
 	// +optional
 	// +listType=map
 	// +listMapKey=type

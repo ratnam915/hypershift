@@ -155,7 +155,7 @@ func (o *DestroyIAMOptions) DestroyOIDCResources(ctx context.Context, iamClient 
 	// Delete the shared role
 	removed := false
 	if removed, err = o.DestroyOIDCRole(ctx, iamClient, "shared-role"); err != nil {
-		return utilerrors.NewAggregate(append(errs, err))
+		errs = append(errs, err)
 	}
 	if removed {
 		// The cluster was created with a single shared role, so we are done.
@@ -164,8 +164,19 @@ func (o *DestroyIAMOptions) DestroyOIDCResources(ctx context.Context, iamClient 
 	}
 	// Delete individual component roles. Attempt all deletions even if some
 	// fail, to avoid leaking IAM roles.
-	roleNames := []string{
+	//
+	// Roles that require retry (e.g. due to eventually-consistent policy
+	// detachment) are handled first via DestroyOIDCRoleWithRetry.
+	roleNamesWithRetry := []string{
 		"openshift-ingress",
+	}
+	for _, name := range roleNamesWithRetry {
+		if err := o.DestroyOIDCRoleWithRetry(ctx, iamClient, name); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	roleNames := []string{
 		"openshift-image-registry",
 		"aws-ebs-csi-driver-controller",
 		"cloud-controller",
@@ -176,14 +187,8 @@ func (o *DestroyIAMOptions) DestroyOIDCResources(ctx context.Context, iamClient 
 		"karpenter",
 	}
 	for _, name := range roleNames {
-		if name == "openshift-ingress" {
-			if err := o.DestroyOIDCRoleWithRetry(ctx, iamClient, name); err != nil {
-				errs = append(errs, err)
-			}
-		} else {
-			if _, err := o.DestroyOIDCRole(ctx, iamClient, name); err != nil {
-				errs = append(errs, err)
-			}
+		if _, err := o.DestroyOIDCRole(ctx, iamClient, name); err != nil {
+			errs = append(errs, err)
 		}
 	}
 

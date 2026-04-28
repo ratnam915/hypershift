@@ -18,6 +18,7 @@ import (
 	sharedingress "github.com/openshift/hypershift/hypershift-operator/controllers/sharedingress"
 	api "github.com/openshift/hypershift/support/api"
 	"github.com/openshift/hypershift/support/config"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	"github.com/openshift/hypershift/support/util"
 
@@ -82,9 +83,9 @@ func (r *HAProxy) reconcileHAProxyIgnitionConfig(ctx context.Context, hcluster *
 	var apiServerExternalPort int32
 	var apiServerInternalAddress string
 
-	if util.IsPrivateHC(hcluster) {
+	if netutil.IsPrivateHC(hcluster) {
 		apiServerExternalAddress = fmt.Sprintf("api.%s.hypershift.local", hcluster.Name)
-		apiServerExternalPort = util.APIPortForLocalZone(util.IsLBKASByHC(hcluster))
+		apiServerExternalPort = netutil.APIPortForLocalZone(netutil.IsLBKASByHC(hcluster))
 	} else {
 		if hcluster.Status.KubeConfig == nil {
 			return "", fmt.Errorf("waiting on hcluster.Status.KubeConfig to be set")
@@ -113,7 +114,7 @@ func (r *HAProxy) reconcileHAProxyIgnitionConfig(ctx context.Context, hcluster *
 	}
 
 	// This provides support for HTTP Proxy on IPv6 scenarios
-	ipv4, err := util.IsIPv4CIDR(hcluster.Spec.Networking.ServiceNetwork[0].CIDR.String())
+	ipv4, err := netutil.IsIPv4CIDR(hcluster.Spec.Networking.ServiceNetwork[0].CIDR.String())
 	if err != nil {
 		return "", fmt.Errorf("error checking the stack in the first ServiceNetworkCIDR %s: %w", hcluster.Spec.Networking.ServiceNetwork[0].CIDR.String(), err)
 	}
@@ -135,7 +136,7 @@ func (r *HAProxy) reconcileHAProxyIgnitionConfig(ctx context.Context, hcluster *
 	}
 	var apiserverProxy string
 	var noProxy string
-	if hcluster.Spec.Configuration != nil && hcluster.Spec.Configuration.Proxy != nil && hcluster.Spec.Configuration.Proxy.HTTPSProxy != "" && util.ConnectsThroughInternetToControlplane(hcluster.Spec.Platform) {
+	if hcluster.Spec.Configuration != nil && hcluster.Spec.Configuration.Proxy != nil && hcluster.Spec.Configuration.Proxy.HTTPSProxy != "" && netutil.ConnectsThroughInternetToControlplane(hcluster.Spec.Platform) {
 		apiserverProxy, err = joinDefaultPortIfMissing(hcluster.Spec.Configuration.Proxy.HTTPSProxy)
 		if err != nil {
 			return "", fmt.Errorf("failed to parse .Spec.Configuration.Proxy.HTTPSProxy: %v", err)
@@ -156,7 +157,7 @@ func (r *HAProxy) reconcileHAProxyIgnitionConfig(ctx context.Context, hcluster *
 	}
 
 	// This is true for ARO in CI while swift is not available.
-	if sharedingress.UseSharedIngress() && !util.IsPrivateHC(hcluster) {
+	if sharedingress.UseSharedIngress() && !netutil.IsPrivateHC(hcluster) {
 		sharedIngressRouteSVC := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
@@ -174,7 +175,7 @@ func (r *HAProxy) reconcileHAProxyIgnitionConfig(ctx context.Context, hcluster *
 		apiServerExternalPort = sharedingress.KASSVCLBPort
 	}
 
-	useProxyProtocol := sharedingress.UseSharedIngress() && !util.IsPrivateHC(hcluster)
+	useProxyProtocol := sharedingress.UseSharedIngress() && !netutil.IsPrivateHC(hcluster)
 	serializedConfig, err := apiServerProxyConfig(r.HAProxyImage, controlPlaneOperatorImage, hcluster.Spec.ClusterID,
 		apiServerExternalAddress, apiServerInternalAddress,
 		apiServerExternalPort, apiServerInternalPort,

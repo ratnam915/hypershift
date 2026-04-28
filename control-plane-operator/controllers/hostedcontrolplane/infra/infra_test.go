@@ -11,9 +11,9 @@ import (
 	"github.com/openshift/hypershift/support/api"
 	"github.com/openshift/hypershift/support/config"
 	"github.com/openshift/hypershift/support/events"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/testutil"
 	"github.com/openshift/hypershift/support/upsert"
-	"github.com/openshift/hypershift/support/util"
 
 	routev1 "github.com/openshift/api/route/v1"
 
@@ -1249,7 +1249,7 @@ func TestReconcileAPIServerService(t *testing.T) {
 			Labels: map[string]string{
 				"hypershift.openshift.io/hosted-control-plane": targetNamespace,
 				hyperv1.RouteVisibilityLabel:                   string(hyperv1.RouteVisibilityPrivate),
-				util.InternalRouteLabel:                        "true",
+				netutil.InternalRouteLabel:                     "true",
 			},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},

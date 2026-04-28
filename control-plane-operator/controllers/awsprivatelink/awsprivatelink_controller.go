@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/hypershift/support/awsapi"
 	supportawsutil "github.com/openshift/hypershift/support/awsutil"
 	"github.com/openshift/hypershift/support/config"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/upsert"
 	"github.com/openshift/hypershift/support/util"
 
@@ -764,7 +765,7 @@ func (r *AWSEndpointServiceReconciler) reconcileAWSEndpointService(ctx context.C
 	awsEndpointService.Status.DNSNames = fqdns
 	awsEndpointService.Status.DNSZoneID = zoneID
 
-	if isPublic, externalNames := util.IsPublicHCP(hcp), hcpExternalNames(hcp); !isPublic && len(externalNames) > 0 {
+	if isPublic, externalNames := netutil.IsPublicHCP(hcp), hcpExternalNames(hcp); !isPublic && len(externalNames) > 0 {
 		// only if not public and external names are configured, create services of type ExternalName so external-dns
 		// can create records for them
 		var errs []error
@@ -967,12 +968,12 @@ func reconcileExternalService(svc *corev1.Service, hcp *hyperv1.HostedControlPla
 
 func hcpExternalNames(hcp *hyperv1.HostedControlPlane) map[string]string {
 	result := map[string]string{}
-	apiStrategy := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
+	apiStrategy := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
 	if apiStrategy != nil && apiStrategy.Type == hyperv1.Route && apiStrategy.Route != nil && apiStrategy.Route.Hostname != "" {
 		result["api"] = apiStrategy.Route.Hostname
 	}
 
-	oauthStrategy := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.OAuthServer)
+	oauthStrategy := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.OAuthServer)
 	if oauthStrategy != nil && oauthStrategy.Type == hyperv1.Route && oauthStrategy.Route != nil && oauthStrategy.Route.Hostname != "" {
 		result["oauth"] = oauthStrategy.Route.Hostname
 	}
@@ -998,7 +999,7 @@ func recordsForService(awsEndpointService *hyperv1.AWSEndpointService, hcp *hype
 
 	// If the kas is exposed through a route, the router needs to have DNS entries for both
 	// the kas and the apps domain
-	if m := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer); m != nil && m.Type == hyperv1.Route {
+	if m := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer); m != nil && m.Type == hyperv1.Route {
 		return []string{"api", "*." + routerDomain}
 	}
 

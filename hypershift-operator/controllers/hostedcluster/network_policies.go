@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/hypershift/support/awsutil"
 	"github.com/openshift/hypershift/support/capabilities"
 	"github.com/openshift/hypershift/support/config"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/rhobsmonitoring"
 	"github.com/openshift/hypershift/support/upsert"
 	hyperutil "github.com/openshift/hypershift/support/util"
@@ -47,7 +48,7 @@ func (r *HostedClusterReconciler) reconcileNetworkPolicies(ctx context.Context, 
 	// Only needed when routes are served by the management cluster's default ingress controller,
 	// i.e., when routes are NOT labeled for the HCP router.
 	policy := networkpolicy.OpenshiftIngressNetworkPolicy(controlPlaneNamespaceName)
-	if !hyperutil.LabelHCPRoutes(hcp) {
+	if !netutil.LabelHCPRoutes(hcp) {
 		if _, err := createOrUpdate(ctx, r.Client, policy, func() error {
 			return reconcileOpenshiftIngressNetworkPolicy(policy)
 		}); err != nil {

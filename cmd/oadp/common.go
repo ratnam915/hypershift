@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/openshift/hypershift/api/hypershift/v1beta1"
-	utilroute "github.com/openshift/hypershift/support/util"
+	"github.com/openshift/hypershift/support/netutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -171,7 +171,7 @@ func (o *CreateOptions) buildBackupSpec(includedNamespaces, includedResources []
 func generateName(hcName, hcNamespace string) string {
 	randomSuffix := utilrand.String(6)
 	baseName := fmt.Sprintf("%s-%s", hcName, hcNamespace)
-	return utilroute.ShortenName(baseName, randomSuffix, validation.DNS1123LabelMaxLength)
+	return netutil.ShortenName(baseName, randomSuffix, validation.DNS1123LabelMaxLength)
 }
 
 // GenerateResourcePolicyName creates a deterministic resource policy ConfigMap name
@@ -182,7 +182,7 @@ func GenerateResourcePolicyName(hcName, hcNamespace string) string {
 	baseName := fmt.Sprintf("%s-%s", hcName, hcNamespace)
 	hash := sha256.Sum256([]byte(baseName))
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
-	return utilroute.ShortenName(baseName, hashSuffix, validation.DNS1123LabelMaxLength)
+	return netutil.ShortenName(baseName, hashSuffix, validation.DNS1123LabelMaxLength)
 }
 
 // GenerateResourcePolicyConfigMap creates a ConfigMap with a Velero volume policy that skips

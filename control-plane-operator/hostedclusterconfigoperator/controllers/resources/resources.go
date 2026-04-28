@@ -49,6 +49,7 @@ import (
 	"github.com/openshift/hypershift/support/capabilities"
 	"github.com/openshift/hypershift/support/config"
 	"github.com/openshift/hypershift/support/globalconfig"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	"github.com/openshift/hypershift/support/upsert"
 	"github.com/openshift/hypershift/support/util"
@@ -655,7 +656,7 @@ func (r *reconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result
 		ovnConfig = hcp.Spec.OperatorConfiguration.ClusterNetworkOperator.OVNKubernetesConfig
 	}
 	if _, err := r.CreateOrUpdate(ctx, r.client, networkOperator, func() error {
-		networkoperator.ReconcileNetworkOperator(networkOperator, hcp.Spec.Networking.NetworkType, hcp.Spec.Platform.Type, util.IsDisableMultiNetwork(hcp), ovnConfig)
+		networkoperator.ReconcileNetworkOperator(networkOperator, hcp.Spec.Networking.NetworkType, hcp.Spec.Platform.Type, netutil.IsDisableMultiNetwork(hcp), ovnConfig)
 		return nil
 	}); err != nil {
 		errs = append(errs, fmt.Errorf("failed to reconcile network operator: %w", err))
@@ -1856,8 +1857,8 @@ func (r *reconciler) reconcileOpenshiftOAuthAPIServerAPIServices(ctx context.Con
 func (r *reconciler) reconcileKASEndpoints(ctx context.Context, hcp *hyperv1.HostedControlPlane) error {
 	var errs []error
 
-	kasAdvertiseAddress := util.GetAdvertiseAddress(hcp, config.DefaultAdvertiseIPv4Address, config.DefaultAdvertiseIPv6Address)
-	kasEndpointsPort := util.KASPodPort(hcp)
+	kasAdvertiseAddress := netutil.GetAdvertiseAddress(hcp, config.DefaultAdvertiseIPv4Address, config.DefaultAdvertiseIPv6Address)
+	kasEndpointsPort := netutil.KASPodPort(hcp)
 
 	// We only keep reconciling the endpoint for existing clusters that are relying on this for nodes haproxy to work.
 	// Otherwise, changing the haproxy config to !=443 would result in a NodePool rollout which want to avoid for existing clusters.

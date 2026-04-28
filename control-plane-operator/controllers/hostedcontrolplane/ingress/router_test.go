@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
-	"github.com/openshift/hypershift/support/util"
+	"github.com/openshift/hypershift/support/netutil"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -72,7 +72,7 @@ func TestReconcileRouterService_AppliesLoadBalancerSourceRanges(t *testing.T) {
 		}
 
 		// Then LoadBalancerSourceRanges should be set to match AllowedCIDRBlocks
-		expectedCIDRs := sets.New(util.AllowedCIDRBlocks(hcp)...)
+		expectedCIDRs := sets.New(netutil.AllowedCIDRBlocks(hcp)...)
 		actualCIDRs := sets.New(svc.Spec.LoadBalancerSourceRanges...)
 
 		if !expectedCIDRs.Equal(actualCIDRs) {

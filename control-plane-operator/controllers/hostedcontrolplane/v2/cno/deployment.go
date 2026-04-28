@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/config"
 	component "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/proxy"
 	"github.com/openshift/hypershift/support/rhobsmonitoring"
@@ -74,9 +75,9 @@ func buildCNOEnvVars(cpContext component.WorkloadContext) []corev1.EnvVar {
 
 	apiServerAddress := hcp.Status.ControlPlaneEndpoint.Host
 	apiServerPort := hcp.Status.ControlPlaneEndpoint.Port
-	if util.IsPrivateHCP(hcp) {
+	if netutil.IsPrivateHCP(hcp) {
 		apiServerAddress = fmt.Sprintf("api.%s.hypershift.local", hcp.Name)
-		apiServerPort = util.APIPortForLocalZone(util.IsLBKAS(hcp))
+		apiServerPort = netutil.APIPortForLocalZone(netutil.IsLBKAS(hcp))
 	} else if hcp.Spec.Platform.Type == hyperv1.IBMCloudPlatform {
 		apiServerAddress = *hcp.Spec.Networking.APIServer.AdvertiseAddress
 		apiServerPort = *hcp.Spec.Networking.APIServer.Port
@@ -116,7 +117,7 @@ func buildCNOEnvVars(cpContext component.WorkloadContext) []corev1.EnvVar {
 		{Name: "FRR_K8S_IMAGE", Value: userReleaseImageProvider.GetImage("metallb-frr")},
 	}
 
-	if !util.IsPrivateHCP(hcp) {
+	if !netutil.IsPrivateHCP(hcp) {
 		cnoEnv = append(cnoEnv, corev1.EnvVar{
 			Name: "PROXY_INTERNAL_APISERVER_ADDRESS", Value: "true",
 		})

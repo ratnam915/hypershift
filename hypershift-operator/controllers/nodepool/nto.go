@@ -13,6 +13,7 @@ import (
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	"github.com/openshift/hypershift/support/backwardcompat"
+	"github.com/openshift/hypershift/support/netutil"
 	supportutil "github.com/openshift/hypershift/support/util"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -62,7 +63,7 @@ func (r *NodePoolReconciler) reconcileMirroredConfigs(ctx context.Context, logr 
 
 	want := set.Set[string]{}
 	for _, mirroredConfig := range mirroredConfigs {
-		want.Insert(supportutil.ShortenName(mirroredConfig.Name, nodePool.Name, validation.LabelValueMaxLength))
+		want.Insert(netutil.ShortenName(mirroredConfig.Name, nodePool.Name, validation.LabelValueMaxLength))
 	}
 	have := set.Set[string]{}
 	for _, configMap := range existingConfigsList.Items {
@@ -112,7 +113,7 @@ func (r *NodePoolReconciler) reconcileMirroredConfigs(ctx context.Context, logr 
 	for _, mirroredConfig := range mirroredConfigs {
 		cm := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      supportutil.ShortenName(mirroredConfig.Name, nodePool.Name, validation.LabelValueMaxLength),
+				Name:      netutil.ShortenName(mirroredConfig.Name, nodePool.Name, validation.LabelValueMaxLength),
 				Namespace: controlPlaneNamespace},
 		}
 		if result, err := r.CreateOrUpdate(ctx, r.Client, cm, func() error {

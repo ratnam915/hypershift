@@ -31,6 +31,7 @@ import (
 	fakecapabilities "github.com/openshift/hypershift/support/capabilities/fake"
 	"github.com/openshift/hypershift/support/certs"
 	controlplanecomponent "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	fakereleaseprovider "github.com/openshift/hypershift/support/releaseinfo/fake"
 	"github.com/openshift/hypershift/support/releaseinfo/testutils"
@@ -1841,7 +1842,7 @@ func TestRemoveHCPIngressFromRoutes(t *testing.T) {
 						Name:      "hcp-managed-route",
 						Namespace: namespace,
 						Labels: map[string]string{
-							util.HCPRouteLabel: namespace,
+							netutil.HCPRouteLabel: namespace,
 						},
 					},
 					Status: routev1.RouteStatus{
@@ -1858,7 +1859,7 @@ func TestRemoveHCPIngressFromRoutes(t *testing.T) {
 						Name:      "hcp-managed-route",
 						Namespace: namespace,
 						Labels: map[string]string{
-							util.HCPRouteLabel: namespace,
+							netutil.HCPRouteLabel: namespace,
 						},
 					},
 					Status: routev1.RouteStatus{
@@ -1990,7 +1991,7 @@ func TestRemoveHCPIngressFromRoutes(t *testing.T) {
 						Name:      "hcp-managed",
 						Namespace: namespace,
 						Labels: map[string]string{
-							util.HCPRouteLabel: namespace,
+							netutil.HCPRouteLabel: namespace,
 						},
 					},
 					Status: routev1.RouteStatus{
@@ -2029,7 +2030,7 @@ func TestRemoveHCPIngressFromRoutes(t *testing.T) {
 						Name:      "hcp-managed",
 						Namespace: namespace,
 						Labels: map[string]string{
-							util.HCPRouteLabel: namespace,
+							netutil.HCPRouteLabel: namespace,
 						},
 					},
 					Status: routev1.RouteStatus{

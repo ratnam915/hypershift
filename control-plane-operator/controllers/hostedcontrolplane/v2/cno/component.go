@@ -9,8 +9,8 @@ import (
 	oapiv2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/oapi"
 	"github.com/openshift/hypershift/support/azureutil"
 	component "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
-	"github.com/openshift/hypershift/support/util"
 
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -155,7 +155,7 @@ func checkOperandsRolloutStatus(cpContext component.WorkloadContext) (bool, erro
 	}
 
 	// multus-admission-controller is needed for all network types when multi-network is enabled
-	if !util.IsDisableMultiNetwork(cpContext.HCP) {
+	if !netutil.IsDisableMultiNetwork(cpContext.HCP) {
 		operandsDeploymentsList = append(operandsDeploymentsList, operand{
 			DeploymentName:  "multus-admission-controller",
 			ContainerName:   "multus-admission-controller",

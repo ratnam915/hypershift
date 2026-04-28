@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/hypershift/hypershift-operator/controllers/nodepool"
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/globalconfig"
+	"github.com/openshift/hypershift/support/netutil"
 	fakereleaseprovider "github.com/openshift/hypershift/support/releaseinfo/fake"
 	supportutil "github.com/openshift/hypershift/support/util"
 	"github.com/openshift/hypershift/support/util/fakeimagemetadataprovider"
@@ -1525,37 +1526,37 @@ func TestReconcileKubeletConfig(t *testing.T) {
 		{
 			name: "copy kubelet config from control plane NS",
 			hostedControlPlaneObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
 			},
 			expectedHostedClusterObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
 			},
 		},
 		{
 			name: "some CM already exist and some are not, expect HCCO to catch up",
 			hostedControlPlaneObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
-				makeKubeletConfigConfigMap(supportutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
 			},
 			existHostedControlPlaneObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
 			},
 			expectedHostedClusterObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
-				makeKubeletConfigConfigMap(supportutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
 			},
 		},
 		{
 			name: "CM need to be deleted",
 			hostedControlPlaneObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcpNamespace, kubeletConfig1),
 			},
 			existHostedControlPlaneObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
-				makeKubeletConfigConfigMap(supportutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("foo", npName2, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
 			},
 			expectedHostedClusterObjects: []client.Object{
-				makeKubeletConfigConfigMap(supportutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
+				makeKubeletConfigConfigMap(netutil.ShortenName("bar", npName1, validation.LabelValueMaxLength), hcNamespace, kubeletConfig1),
 			},
 		},
 	}

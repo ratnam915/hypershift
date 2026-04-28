@@ -22,7 +22,7 @@ import (
 	kvinfra "github.com/openshift/hypershift/kubevirtexternalinfra"
 	hyperapi "github.com/openshift/hypershift/support/api"
 	supportforwarder "github.com/openshift/hypershift/support/forwarder"
-	supportutil "github.com/openshift/hypershift/support/util"
+	"github.com/openshift/hypershift/support/netutil"
 
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -232,7 +232,7 @@ func dumpGuestCluster(ctx context.Context, opts *DumpOptions) error {
 			Out:       forwarderOutput,
 			ErrOut:    forwarderOutput,
 		}
-		podPort := supportutil.KASPodPortFromHostedCluster(hostedCluster)
+		podPort := netutil.KASPodPortFromHostedCluster(hostedCluster)
 		forwarderStop = make(chan struct{})
 		if err := forwarder.ForwardPorts([]string{fmt.Sprintf("%d:%d", localPort, podPort)}, forwarderStop); err != nil {
 			return fmt.Errorf("cannot forward kube apiserver port: %w, output: %s", err, forwarderOutput.String())

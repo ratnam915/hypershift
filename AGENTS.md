@@ -191,6 +191,33 @@ Use the `git-commit-format` skill for formatting rules and required footers. Val
 
 Before creating a PR or after addressing review comments, use the `restructure-hypershift-commits` skill to reorganize all branch commits into logical, component-based commits. This ensures every PR has a clean, reviewable commit history grouped by architectural boundary.
 
+## Pull Requests
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full contribution guidelines. Key points for agents:
+
+### Before Creating a PR
+
+1. Use the `restructure-hypershift-commits` skill to organize commits by component (see [Restructuring Commits](#restructuring-commits-before-pr-submission) above)
+2. Run `make pre-commit` to update dependencies, build, verify formatting, run tests, and validate commit messages via gitlint
+
+### PR Title
+
+Prefix with a Jira ticket number: `OCPBUGS-12345: Fix memory leak in controller`. Use `NO-JIRA:` only when no Jira issue exists (sparingly).
+
+### PR Description
+
+Follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.
+
+### PR Workflow
+
+1. Open the PR in **draft mode** to avoid triggering all CI jobs and notifying approvers
+2. Run necessary CI jobs manually with `/test <job-name>`
+3. Mark as "Ready for Review" once tests pass and required labels are applied
+
+### After Review Comments
+
+After addressing review feedback, use the `restructure-hypershift-commits` skill again to reorganize commits before force-pushing. This keeps the commit history clean for subsequent review rounds.
+
 ## Code conventions
 
 - Prefer Gherkin Syntax to define unit test cases, e.g. "When... it should..."

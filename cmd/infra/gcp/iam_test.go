@@ -3,8 +3,9 @@ package gcp
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	. "github.com/onsi/gomega"
 
 	"github.com/go-logr/logr"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -52,10 +53,8 @@ func TestIAMManagerFormatServiceAccountMethods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.method(tt.arg)
-			if got != tt.expected {
-				t.Errorf("got %q, want %q", got, tt.expected)
-			}
+			g := NewWithT(t)
+			g.Expect(tt.method(tt.arg)).To(Equal(tt.expected))
 		})
 	}
 }
@@ -89,10 +88,8 @@ func TestIAMManagerFormatWIFPrincipal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := manager.formatWIFPrincipal(tt.namespace, tt.saName)
-			if got != tt.expected {
-				t.Errorf("got %q, want %q", got, tt.expected)
-			}
+			g := NewWithT(t)
+			g.Expect(manager.formatWIFPrincipal(tt.namespace, tt.saName)).To(Equal(tt.expected))
 		})
 	}
 }
@@ -120,16 +117,13 @@ func TestIAMManagerFormatIssuerUri(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			manager := &IAMManager{
 				oidcIssuerURL: tt.oidcIssuerURL,
 				infraID:       tt.infraID,
 				logger:        logr.Discard(),
 			}
-
-			got := manager.formatIssuerUri()
-			if got != tt.expected {
-				t.Errorf("got %q, want %q", got, tt.expected)
-			}
+			g.Expect(manager.formatIssuerUri()).To(Equal(tt.expected))
 		})
 	}
 }
@@ -191,17 +185,11 @@ func TestAddMemberToRoleBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := manager.addMemberToRoleBinding(tt.policy, tt.role, tt.member)
-			if got != tt.expectedResult {
-				t.Errorf("expected result %v, got %v", tt.expectedResult, got)
-			}
-
-			// Verify member count in the role binding
+			g := NewWithT(t)
+			g.Expect(manager.addMemberToRoleBinding(tt.policy, tt.role, tt.member)).To(Equal(tt.expectedResult))
 			for _, binding := range tt.policy.Bindings {
 				if binding.Role == tt.role {
-					if len(binding.Members) != tt.expectedCount {
-						t.Errorf("expected %d members, got %d", tt.expectedCount, len(binding.Members))
-					}
+					g.Expect(binding.Members).To(HaveLen(tt.expectedCount))
 					break
 				}
 			}
@@ -269,17 +257,11 @@ func TestRemoveMemberFromRoleBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := manager.removeMemberFromRoleBinding(tt.policy, tt.role, tt.member)
-			if got != tt.expectedResult {
-				t.Errorf("expected result %v, got %v", tt.expectedResult, got)
-			}
-
-			// Verify member count in the role binding
+			g := NewWithT(t)
+			g.Expect(manager.removeMemberFromRoleBinding(tt.policy, tt.role, tt.member)).To(Equal(tt.expectedResult))
 			for _, binding := range tt.policy.Bindings {
 				if binding.Role == tt.role {
-					if len(binding.Members) != tt.expectedCount {
-						t.Errorf("expected %d members, got %d", tt.expectedCount, len(binding.Members))
-					}
+					g.Expect(binding.Members).To(HaveLen(tt.expectedCount))
 					break
 				}
 			}
@@ -344,17 +326,11 @@ func TestAddMemberToServiceAccountRoleBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := manager.addMemberToServiceAccountRoleBinding(tt.policy, tt.role, tt.member)
-			if got != tt.expectedResult {
-				t.Errorf("expected result %v, got %v", tt.expectedResult, got)
-			}
-
-			// Verify member count in the role binding
+			g := NewWithT(t)
+			g.Expect(manager.addMemberToServiceAccountRoleBinding(tt.policy, tt.role, tt.member)).To(Equal(tt.expectedResult))
 			for _, binding := range tt.policy.Bindings {
 				if binding.Role == tt.role {
-					if len(binding.Members) != tt.expectedCount {
-						t.Errorf("expected %d members, got %d", tt.expectedCount, len(binding.Members))
-					}
+					g.Expect(binding.Members).To(HaveLen(tt.expectedCount))
 					break
 				}
 			}
@@ -363,46 +339,32 @@ func TestAddMemberToServiceAccountRoleBinding(t *testing.T) {
 }
 
 func TestLoadServiceAccountDefinitions(t *testing.T) {
-	// Test loading the embedded default configuration
 	t.Run("When loading embedded default configuration it should return valid definitions", func(t *testing.T) {
+		g := NewWithT(t)
 		definitions, err := loadServiceAccountDefinitions()
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(definitions).NotTo(BeEmpty())
 
-		if len(definitions) == 0 {
-			t.Error("expected at least one service account definition")
-		}
-
-		// Verify each definition has required fields
 		for _, def := range definitions {
-			if def.Name == "" {
-				t.Error("expected Name to be non-empty")
-			}
-			if def.DisplayName == "" {
-				t.Errorf("expected DisplayName to be non-empty for %s", def.Name)
-			}
+			g.Expect(def.Name).NotTo(BeEmpty())
+			g.Expect(def.DisplayName).NotTo(BeEmpty(), "DisplayName should be non-empty for %s", def.Name)
 		}
 	})
 
 	t.Run("When loading cloud-network definition it should have roles populated", func(t *testing.T) {
+		g := NewWithT(t)
 		definitions, err := loadServiceAccountDefinitions()
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		g.Expect(err).NotTo(HaveOccurred())
 
-		found := false
-		for _, def := range definitions {
-			if def.Name == "cloud-network" {
-				found = true
-				if len(def.Roles) == 0 {
-					t.Error("expected cloud-network to have non-empty Roles")
-				}
+		var cloudNetworkDef *ServiceAccountDefinition
+		for i := range definitions {
+			if definitions[i].Name == "cloud-network" {
+				cloudNetworkDef = &definitions[i]
+				break
 			}
 		}
-		if !found {
-			t.Error("expected to find cloud-network service account definition")
-		}
+		g.Expect(cloudNetworkDef).NotTo(BeNil(), "expected to find cloud-network service account definition")
+		g.Expect(cloudNetworkDef.Roles).NotTo(BeEmpty())
 	})
 }
 
@@ -421,10 +383,8 @@ func TestIsAlreadyExistsError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isAlreadyExistsError(tt.err)
-			if got != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, got)
-			}
+			g := NewWithT(t)
+			g.Expect(isAlreadyExistsError(tt.err)).To(Equal(tt.expected))
 		})
 	}
 }
@@ -464,13 +424,14 @@ func TestLoadAndValidateJWKS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
 			var filePath string
 			if tt.setupFile {
 				tmpDir := t.TempDir()
 				filePath = filepath.Join(tmpDir, "jwks.json")
-				if err := os.WriteFile(filePath, []byte(tt.fileContent), 0644); err != nil {
-					t.Fatalf("failed to create test file: %v", err)
-				}
+				err := os.WriteFile(filePath, []byte(tt.fileContent), 0644)
+				g.Expect(err).NotTo(HaveOccurred())
 			} else {
 				filePath = filepath.Join(t.TempDir(), "non-existent.json")
 			}
@@ -478,20 +439,12 @@ func TestLoadAndValidateJWKS(t *testing.T) {
 			result, err := loadAndValidateJWKS(filePath)
 
 			if tt.expectedError != "" {
-				if err == nil {
-					t.Errorf("expected error containing %q, got nil", tt.expectedError)
-					return
-				}
-				if !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
-				}
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.expectedError))
 			} else {
-				if err != nil {
-					t.Errorf("expected no error, got %v", err)
-					return
-				}
-				if tt.expectedJSON && result != tt.fileContent {
-					t.Errorf("expected content %q, got %q", tt.fileContent, result)
+				g.Expect(err).NotTo(HaveOccurred())
+				if tt.expectedJSON {
+					g.Expect(result).To(Equal(tt.fileContent))
 				}
 			}
 		})
@@ -557,14 +510,19 @@ func TestCompareJWKS(t *testing.T) {
 			jwks2:    `{"keys": []}`,
 			expected: false,
 		},
+		{
+			name:     "When second contains invalid JSON it should return false",
+			jwks1:    `{"keys": []}`,
+			jwks2:    `{not json}`,
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			got := manager.compareJWKS(tt.jwks1, tt.jwks2)
-			if got != tt.expected {
-				t.Errorf("compareJWKS(%q, %q) = %v, want %v", tt.jwks1, tt.jwks2, got, tt.expected)
-			}
+			g.Expect(got).To(Equal(tt.expected))
 		})
 	}
 }

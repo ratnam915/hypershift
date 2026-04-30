@@ -234,15 +234,20 @@ func (c *IAMManager) CreateOIDCProvider(ctx context.Context) (string, string, er
 	c.logger.Info("Using OIDC issuer URI", "issuerURI", issuerURI)
 
 	providerAudience := c.formatProviderAudience()
+	oidc := &iam.Oidc{
+		AllowedAudiences: []string{defaultOIDCAudience},
+		IssuerUri:        issuerURI,
+		JwksJson:         jwksJson,
+	}
+	if jwksJson == "" {
+		oidc.ForceSendFields = []string{"JwksJson"}
+	}
+
 	provider := &iam.WorkloadIdentityPoolProvider{
 		Description: fmt.Sprintf("OIDC Provider for HyperShift cluster %s", c.infraID),
 		DisplayName: providerID,
 		Disabled:    false,
-		Oidc: &iam.Oidc{
-			AllowedAudiences: []string{defaultOIDCAudience},
-			IssuerUri:        issuerURI,
-			JwksJson:         jwksJson,
-		},
+		Oidc:        oidc,
 		AttributeMapping: map[string]string{
 			"google.subject": "assertion.sub",
 		},

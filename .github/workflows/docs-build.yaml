@@ -8,7 +8,6 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/docs-build.yaml'
-      - '.github/workflows/docs-build-reusable.yaml'
 
 jobs:
   build:

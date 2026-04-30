@@ -21,7 +21,7 @@ func TestPredicate(t *testing.T) {
 
 	testCases := []struct {
 		name             string
-		autoNode         *hyperv1.AutoNode
+		autoNode         hyperv1.AutoNode
 		hcpStatus        *hyperv1.KubeconfigSecretRef
 		kubeconfigSecret client.Object
 		expected         bool
@@ -29,12 +29,12 @@ func TestPredicate(t *testing.T) {
 	}{
 		{
 			name: "When Karpenter is enabled and kubeconfig exists, it should return true",
-			autoNode: &hyperv1.AutoNode{
+			autoNode: hyperv1.AutoNode{
 				Provisioner: hyperv1.ProvisionerConfig{
 					Name: hyperv1.ProvisionerKarpenter,
-					Karpenter: &hyperv1.KarpenterConfig{
+					Karpenter: hyperv1.KarpenterConfig{
 						Platform: hyperv1.AWSPlatform,
-						AWS: &hyperv1.KarpenterAWSConfig{
+						AWS: hyperv1.KarpenterAWSConfig{
 							RoleARN: "arn:aws:iam::123456789012:role/karpenter",
 						},
 					},
@@ -54,7 +54,7 @@ func TestPredicate(t *testing.T) {
 		},
 		{
 			name: "When Karpenter is not enabled, it should return false",
-			autoNode: &hyperv1.AutoNode{
+			autoNode: hyperv1.AutoNode{
 				Provisioner: hyperv1.ProvisionerConfig{
 					Name: "",
 				},
@@ -64,17 +64,17 @@ func TestPredicate(t *testing.T) {
 		},
 		{
 			name:     "When autoNode is nil, it should return false",
-			autoNode: nil,
+			autoNode: hyperv1.AutoNode{},
 			expected: false,
 		},
 		{
 			name: "When kubeconfig status is nil, it should return false",
-			autoNode: &hyperv1.AutoNode{
+			autoNode: hyperv1.AutoNode{
 				Provisioner: hyperv1.ProvisionerConfig{
 					Name: hyperv1.ProvisionerKarpenter,
-					Karpenter: &hyperv1.KarpenterConfig{
+					Karpenter: hyperv1.KarpenterConfig{
 						Platform: hyperv1.AWSPlatform,
-						AWS: &hyperv1.KarpenterAWSConfig{
+						AWS: hyperv1.KarpenterAWSConfig{
 							RoleARN: "arn:aws:iam::123456789012:role/karpenter",
 						},
 					},
@@ -86,12 +86,12 @@ func TestPredicate(t *testing.T) {
 		},
 		{
 			name: "When kubeconfig secret does not exist, it should return error",
-			autoNode: &hyperv1.AutoNode{
+			autoNode: hyperv1.AutoNode{
 				Provisioner: hyperv1.ProvisionerConfig{
 					Name: hyperv1.ProvisionerKarpenter,
-					Karpenter: &hyperv1.KarpenterConfig{
+					Karpenter: hyperv1.KarpenterConfig{
 						Platform: hyperv1.AWSPlatform,
-						AWS: &hyperv1.KarpenterAWSConfig{
+						AWS: hyperv1.KarpenterAWSConfig{
 							RoleARN: "arn:aws:iam::123456789012:role/karpenter",
 						},
 					},

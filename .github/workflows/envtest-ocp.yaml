@@ -41,7 +41,7 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             ref="$PR_DIFF_REF"
           fi
-          if git diff --name-only "$ref" | grep -qE '^(api/|test/envtest/|cmd/install/assets/crds/hypershift-operator/tests/|\.github/workflows/envtest-ocp\.yaml$)'; then
+          if git diff --name-only "$ref" | grep -qE '^(api/|test/envtest/|cmd/install/assets/crds/hypershift-operator/tests/|karpenter-operator/controllers/karpenter/assets/tests/|\.github/workflows/envtest-ocp\.yaml$)'; then
             echo "should_run=true"
           else
             echo "should_run=false"

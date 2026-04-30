@@ -61,11 +61,11 @@ func TestAdaptCredentialsSecret(t *testing.T) {
 					Namespace: "test-namespace",
 				},
 				Spec: hyperv1.HostedControlPlaneSpec{
-					AutoNode: &hyperv1.AutoNode{
+					AutoNode: hyperv1.AutoNode{
 						Provisioner: hyperv1.ProvisionerConfig{
-							Karpenter: &hyperv1.KarpenterConfig{
+							Karpenter: hyperv1.KarpenterConfig{
 								Platform: hyperv1.AWSPlatform,
-								AWS: &hyperv1.KarpenterAWSConfig{
+								AWS: hyperv1.KarpenterAWSConfig{
 									RoleARN: tc.roleARN,
 								},
 							},
@@ -119,11 +119,11 @@ func TestAdaptCredentialsSecretFormat(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: hyperv1.HostedControlPlaneSpec{
-			AutoNode: &hyperv1.AutoNode{
+			AutoNode: hyperv1.AutoNode{
 				Provisioner: hyperv1.ProvisionerConfig{
-					Karpenter: &hyperv1.KarpenterConfig{
+					Karpenter: hyperv1.KarpenterConfig{
 						Platform: hyperv1.AWSPlatform,
-						AWS: &hyperv1.KarpenterAWSConfig{
+						AWS: hyperv1.KarpenterAWSConfig{
 							RoleARN: roleARN,
 						},
 					},

@@ -202,11 +202,6 @@ linters:
           - kubeapilinter
         path: hypershift/v1beta1/openstack.go
         text: 'arrayofstruct: OpenStackPlatformSpec.Subnets is an array of structs, but the struct has no required fields. At least one field should be marked as required to prevent ambiguous YAML configurations'
-      - linters:
-          - kubeapilinter
-        path: karpenter/v1beta1/karpenter_types.go
-        text: 'arrayofstruct: OpenshiftEC2NodeClassSpec.CapacityReservationSelectorTerms is an array of structs, but the struct has no required fields. At least one field should be marked as required to prevent ambiguous YAML configurations'
-
       # conditions (1 issue)
       - linters:
           - kubeapilinter

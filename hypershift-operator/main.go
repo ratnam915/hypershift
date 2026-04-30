@@ -56,9 +56,9 @@ import (
 	"github.com/openshift/hypershift/support/config"
 	"github.com/openshift/hypershift/support/globalconfig"
 	"github.com/openshift/hypershift/support/metrics"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/supportedversion"
 	"github.com/openshift/hypershift/support/upsert"
-	hyperutil "github.com/openshift/hypershift/support/util"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -752,14 +752,14 @@ func run(ctx context.Context, opts *StartOptions, log logr.Logger) error {
 				ic.Spec.RouteSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
 			}
 			for i, requirement := range ic.Spec.RouteSelector.MatchExpressions {
-				if requirement.Key != hyperutil.HCPRouteLabel {
+				if requirement.Key != netutil.HCPRouteLabel {
 					continue
 				}
 				ic.Spec.RouteSelector.MatchExpressions[i].Operator = metav1.LabelSelectorOpDoesNotExist
 				return nil
 			}
 			ic.Spec.RouteSelector.MatchExpressions = append(ic.Spec.RouteSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      hyperutil.HCPRouteLabel,
+				Key:      netutil.HCPRouteLabel,
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			})
 			return nil

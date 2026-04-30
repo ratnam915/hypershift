@@ -81,6 +81,7 @@ import (
 	"github.com/openshift/hypershift/support/globalconfig"
 	karpenterutil "github.com/openshift/hypershift/support/karpenter"
 	"github.com/openshift/hypershift/support/metrics"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	"github.com/openshift/hypershift/support/upsert"
 	"github.com/openshift/hypershift/support/util"
@@ -681,9 +682,9 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 			Reason: hyperv1.StatusUnknownReason,
 		}
 
-		kasExternalHostname := util.ServiceExternalDNSHostname(hostedControlPlane, hyperv1.APIServer)
+		kasExternalHostname := netutil.ServiceExternalDNSHostname(hostedControlPlane, hyperv1.APIServer)
 		if kasExternalHostname != "" {
-			if err := util.ResolveDNSHostname(ctx, kasExternalHostname); err != nil {
+			if err := netutil.ResolveDNSHostname(ctx, kasExternalHostname); err != nil {
 				newCondition = metav1.Condition{
 					Type:    string(hyperv1.ExternalDNSReachable),
 					Status:  metav1.ConditionFalse,
@@ -911,13 +912,13 @@ func reconcileAvailabilityStatus(
 // healthCheckKASLoadBalancers performs a health check on the KubeAPI server /healthz endpoint using the public and private load balancers hostnames directly
 // This will detect if load balancers are down or deleted out of band
 func (r *HostedControlPlaneReconciler) healthCheckKASLoadBalancers(ctx context.Context, hcp *hyperv1.HostedControlPlane) error {
-	serviceStrategy := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
+	serviceStrategy := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
 	if serviceStrategy == nil {
 		return fmt.Errorf("APIServer service strategy not specified")
 	}
 
 	switch {
-	case !util.IsPublicHCP(hcp):
+	case !netutil.IsPublicHCP(hcp):
 		// When the cluster is private, checking the load balancers will depend on whether the load balancer is
 		// using the right subnets. To avoid uncertainty, we'll limit the check to the service endpoint.
 		if hcp.Spec.Platform.Type == hyperv1.IBMCloudPlatform {
@@ -1647,7 +1648,7 @@ func (r *HostedControlPlaneReconciler) reconcilePKI(ctx context.Context, hcp *hy
 	//   cert secret ourselves.
 
 	// Multus Admission Controller Serving Cert - only if Multus is not disabled
-	if !util.IsDisableMultiNetwork(hcp) {
+	if !netutil.IsDisableMultiNetwork(hcp) {
 		multusAdmissionControllerService := manifests.MultusAdmissionControllerService(hcp.Namespace)
 		if err = r.Get(ctx, client.ObjectKeyFromObject(multusAdmissionControllerService), multusAdmissionControllerService); err != nil {
 			if !apierrors.IsNotFound(err) {
@@ -1940,7 +1941,7 @@ func (r *HostedControlPlaneReconciler) cleanupClusterNetworkOperatorResources(ct
 		// CNO manages overall multus-admission-controller deployment. CPO manages restarts.
 		// TODO: why is this not done in CNO?
 		// Only restart multus deployment if Multus is not disabled
-		if !util.IsDisableMultiNetwork(hcp) {
+		if !netutil.IsDisableMultiNetwork(hcp) {
 			multusDeployment := manifests.MultusAdmissionControllerDeployment(hcp.Namespace)
 			if err := cnov2.SetRestartAnnotationAndPatch(ctx, r.Client, multusDeployment, restartAnnotation); err != nil {
 				return fmt.Errorf("failed to restart multus admission controller: %w", err)
@@ -2140,7 +2141,7 @@ func (r *HostedControlPlaneReconciler) removeHCPIngressFromRoutes(ctx context.Co
 
 	for i := range routeList.Items {
 		route := &routeList.Items[i]
-		if _, hasHCPLabel := route.Labels[util.HCPRouteLabel]; hasHCPLabel {
+		if _, hasHCPLabel := route.Labels[netutil.HCPRouteLabel]; hasHCPLabel {
 			// Skip routes that should be managed by the HCP router
 			continue
 		}

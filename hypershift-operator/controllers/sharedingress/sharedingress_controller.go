@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/capabilities"
 	supportconfig "github.com/openshift/hypershift/support/config"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/upsert"
 	"github.com/openshift/hypershift/support/util"
 
@@ -123,7 +124,7 @@ func (r *SharedIngressReconciler) SetupWithManager(mgr ctrl.Manager, createOrUpd
 		Watches(
 			&routev1.Route{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				if _, hasHCPLabel := obj.GetLabels()[util.HCPRouteLabel]; !hasHCPLabel {
+				if _, hasHCPLabel := obj.GetLabels()[netutil.HCPRouteLabel]; !hasHCPLabel {
 					return nil
 				}
 				return []ctrl.Request{{NamespacedName: client.ObjectKey{
@@ -219,7 +220,7 @@ func (r *SharedIngressReconciler) reconcileRouter(ctx context.Context, pullSecre
 	routeList := &routev1.RouteList{}
 	// If the hypershift.openshift.io/hosted-control-plane label is not present,
 	// then it means the route should be fulfilled by the management cluster's router.
-	if err := r.Client.List(ctx, routeList, client.HasLabels{util.HCPRouteLabel}); err != nil {
+	if err := r.Client.List(ctx, routeList, client.HasLabels{netutil.HCPRouteLabel}); err != nil {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
 
@@ -386,7 +387,7 @@ func UseSharedIngress() bool {
 }
 
 func KasRouteHostname(hcp *hyperv1.HostedControlPlane) string {
-	kasPublishStrategy := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
+	kasPublishStrategy := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.APIServer)
 	if kasPublishStrategy.Route == nil {
 		return ""
 	}

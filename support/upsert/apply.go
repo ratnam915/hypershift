@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/util"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -179,7 +180,7 @@ func cleanupRemovalMarkers(obj crclient.Object) {
 	}
 	filteredLabels := make(map[string]string)
 	for k, v := range labels {
-		if v != util.RemoveLabelMarker {
+		if v != netutil.RemoveLabelMarker {
 			filteredLabels[k] = v
 		}
 	}
@@ -198,7 +199,7 @@ func preserveOriginalMetadata(original, mutated crclient.Object) {
 
 	// Process mutated labels: add/update new labels, remove labels marked with RemoveLabelMarker
 	for k, v := range mutated.GetLabels() {
-		if v == util.RemoveLabelMarker {
+		if v == netutil.RemoveLabelMarker {
 			delete(labels, k)
 		} else {
 			labels[k] = v

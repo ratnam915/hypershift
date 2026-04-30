@@ -7,8 +7,8 @@ import (
 
 	"github.com/openshift/hypershift/cmd/log"
 	"github.com/openshift/hypershift/cmd/util"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/oadp"
-	utilroute "github.com/openshift/hypershift/support/util"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
@@ -101,7 +101,7 @@ func GenerateRestoreName(hcName, hcNamespace string) string {
 	randomSuffix := utilrand.String(6)
 	baseName := fmt.Sprintf("%s-%s", hcName, hcNamespace)
 	// Use ShortenName to ensure it doesn't exceed DNS1123 subdomain max length (63 chars)
-	return utilroute.ShortenName(baseName, randomSuffix, validation.DNS1123LabelMaxLength)
+	return netutil.ShortenName(baseName, randomSuffix, validation.DNS1123LabelMaxLength)
 }
 
 func (o *CreateOptions) RunRestore(ctx context.Context) error {

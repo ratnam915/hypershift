@@ -38,6 +38,7 @@ import (
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/events"
 	"github.com/openshift/hypershift/support/metrics"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	"github.com/openshift/hypershift/support/supportedversion"
@@ -525,7 +526,7 @@ func NewStartCommand() *cobra.Command {
 			os.Exit(1)
 		}
 
-		if hcp.Spec.Platform.Type == hyperv1.AWSPlatform && util.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) {
+		if hcp.Spec.Platform.Type == hyperv1.AWSPlatform && netutil.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) {
 			controllerName := "PrivateKubeAPIServerServiceObserver"
 			if err := (&awsprivatelink.PrivateServiceObserver{
 				Client:                 mgr.GetClient(),
@@ -562,7 +563,7 @@ func NewStartCommand() *cobra.Command {
 			}
 		}
 
-		if hcp.Spec.Platform.Type == hyperv1.GCPPlatform && util.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) {
+		if hcp.Spec.Platform.Type == hyperv1.GCPPlatform && netutil.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) {
 			observerControllerName := "GCPPrivateServiceObserver"
 
 			if err = (&gcpprivateserviceconnect.GCPPrivateServiceObserver{
@@ -590,7 +591,7 @@ func NewStartCommand() *cobra.Command {
 			}
 		}
 
-		if hcp.Spec.Platform.Type == hyperv1.AzurePlatform && util.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) && !azureutil.IsAroHCP() {
+		if hcp.Spec.Platform.Type == hyperv1.AzurePlatform && netutil.IsPrivateHCP(hcp) && mgmtClusterCaps.Has(capabilities.CapabilityRoute) && !azureutil.IsAroHCP() {
 			if hcp.Spec.Platform.Azure == nil || hcp.Spec.Platform.Azure.Private.Type == "" {
 				setupLog.Error(fmt.Errorf("azure platform or private connectivity is not configured"), "skipping Azure Private Link observer setup")
 			} else {
@@ -608,7 +609,7 @@ func NewStartCommand() *cobra.Command {
 					os.Exit(1)
 				}
 
-				if oauthStrategy := util.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.OAuthServer); oauthStrategy != nil && oauthStrategy.Type == hyperv1.LoadBalancer {
+				if oauthStrategy := netutil.ServicePublishingStrategyByTypeForHCP(hcp, hyperv1.OAuthServer); oauthStrategy != nil && oauthStrategy.Type == hyperv1.LoadBalancer {
 					azureOAuthObserverName := "AzurePrivateLinkServiceOAuthObserver"
 
 					if err = (&azureprivatelinkservice.AzurePrivateLinkServiceObserver{

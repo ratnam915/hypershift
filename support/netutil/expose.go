@@ -1,4 +1,4 @@
-package util
+package netutil
 
 import (
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"

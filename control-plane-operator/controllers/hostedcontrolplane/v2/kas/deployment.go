@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/config"
 	component "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/proxy"
 	"github.com/openshift/hypershift/support/util"
@@ -165,7 +166,7 @@ func adaptDeployment(cpContext component.WorkloadContext, deployment *appsv1.Dep
 
 func updateMainContainer(podSpec *corev1.PodSpec, hcp *hyperv1.HostedControlPlane) {
 	podspec.UpdateContainer(ComponentName, podSpec.Containers, func(c *corev1.Container) {
-		c.Ports[0].ContainerPort = util.KASPodPort(hcp)
+		c.Ports[0].ContainerPort = netutil.KASPodPort(hcp)
 
 		kasVerbosityLevel := 2
 		if hcp.Annotations[hyperv1.KubeAPIServerVerbosityLevelAnnotation] != "" {
@@ -183,8 +184,8 @@ func updateMainContainer(podSpec *corev1.PodSpec, hcp *hyperv1.HostedControlPlan
 		// Using a CIDR is not supported by Go's default ProxyFunc, but Kube uses a custom one by default that does support it:
 		// https://github.com/kubernetes/kubernetes/blob/ab13c85316015cf9f115e29923ba9740bd1564fd/staging/src/k8s.io/apimachinery/pkg/util/net/http.go#L112-L114
 		var additionalNoProxyCIDRS []string
-		additionalNoProxyCIDRS = append(additionalNoProxyCIDRS, util.ClusterCIDRs(hcp.Spec.Networking.ClusterNetwork)...)
-		additionalNoProxyCIDRS = append(additionalNoProxyCIDRS, util.ServiceCIDRs(hcp.Spec.Networking.ServiceNetwork)...)
+		additionalNoProxyCIDRS = append(additionalNoProxyCIDRS, netutil.ClusterCIDRs(hcp.Spec.Networking.ClusterNetwork)...)
+		additionalNoProxyCIDRS = append(additionalNoProxyCIDRS, netutil.ServiceCIDRs(hcp.Spec.Networking.ServiceNetwork)...)
 		proxy.SetEnvVars(&c.Env, additionalNoProxyCIDRS...)
 
 		if hcp.Annotations[hyperv1.KubeAPIServerGOGCAnnotation] != "" {
@@ -343,7 +344,7 @@ func applyAWSPodIdentityWebhookContainer(podSpec *corev1.PodSpec, hcp *hyperv1.H
 }
 
 func applyAzureWorkloadIdentityWebhookContainer(podSpec *corev1.PodSpec, hcp *hyperv1.HostedControlPlane) {
-	waitForKASScript := fmt.Sprintf(azureWorkloadIdentityWebhookWaitForKASVersionTemplate, util.KASPodPort(hcp))
+	waitForKASScript := fmt.Sprintf(azureWorkloadIdentityWebhookWaitForKASVersionTemplate, netutil.KASPodPort(hcp))
 
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:            "azure-workload-identity-webhook",

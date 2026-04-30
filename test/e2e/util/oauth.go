@@ -17,7 +17,7 @@ import (
 	configmanifests "github.com/openshift/hypershift/control-plane-operator/hostedclusterconfigoperator/controllers/resources/manifests"
 	"github.com/openshift/hypershift/hypershift-operator/controllers/manifests"
 	"github.com/openshift/hypershift/support/api"
-	supportutil "github.com/openshift/hypershift/support/util"
+	"github.com/openshift/hypershift/support/netutil"
 
 	v1 "github.com/openshift/api/config/v1"
 	osinv1 "github.com/openshift/api/osin/v1"
@@ -312,7 +312,7 @@ func WaitForOAuthLoadBalancerReady(t *testing.T, ctx context.Context, client crc
 	// Get the OAuth hostname from the HostedCluster's service publishing strategy.
 	// This is the hostname that the TLS certificate is issued for and that ExternalDNS
 	// creates a DNS record for, so it must be used for TLS connections.
-	oauthStrategy := supportutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.OAuthServer)
+	oauthStrategy := netutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.OAuthServer)
 	g.Expect(oauthStrategy).ToNot(BeNil(), "OAuth service publishing strategy not found in HostedCluster spec")
 	g.Expect(oauthStrategy.LoadBalancer).ToNot(BeNil(), "OAuth LoadBalancer strategy not found")
 	oauthHost := oauthStrategy.LoadBalancer.Hostname

@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/config"
 	"github.com/openshift/hypershift/support/events"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/util"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -28,8 +29,8 @@ func kasLabels() map[string]string {
 }
 
 func ReconcileService(svc *corev1.Service, strategy *hyperv1.ServicePublishingStrategy, owner *metav1.OwnerReference, apiServerServicePort int, apiAllowedCIDRBlocks []string, hcp *hyperv1.HostedControlPlane) error {
-	isPublic := util.IsPublicHCP(hcp)
-	isPrivate := util.IsPrivateHCP(hcp)
+	isPublic := netutil.IsPublicHCP(hcp)
+	isPrivate := netutil.IsPrivateHCP(hcp)
 	util.EnsureOwnerRef(svc, owner)
 	if svc.Spec.Selector == nil {
 		svc.Spec.Selector = kasLabels()
@@ -228,7 +229,7 @@ func ReconcileExternalPrivateRoute(route *routev1.Route, owner *metav1.OwnerRefe
 		route.Labels = map[string]string{}
 	}
 	route.Labels[hyperv1.RouteVisibilityLabel] = hyperv1.RouteVisibilityPrivate
-	util.AddInternalRouteLabel(route)
+	netutil.AddInternalRouteLabel(route)
 	return nil
 }
 
@@ -237,7 +238,7 @@ func reconcileExternalRoute(route *routev1.Route, owner *metav1.OwnerReference, 
 		return fmt.Errorf("route hostname is required for service APIServer")
 	}
 	util.EnsureOwnerRef(route, owner)
-	util.AddHCPRouteLabel(route)
+	netutil.AddHCPRouteLabel(route)
 	route.Spec.Host = hostname
 	route.Spec.To = routev1.RouteTargetReference{
 		Kind: "Service",
@@ -256,7 +257,7 @@ func ReconcileInternalRoute(route *routev1.Route, owner *metav1.OwnerReference) 
 	util.EnsureOwnerRef(route, owner)
 	route.Spec.Host = fmt.Sprintf("api.%s.hypershift.local", owner.Name)
 	// Assumes owner is the HCP
-	return util.ReconcileInternalRoute(route, "", manifests.KubeAPIServerService("").Name)
+	return netutil.ReconcileInternalRoute(route, "", manifests.KubeAPIServerService("").Name)
 }
 
 func ReconcileKonnectivityServerLocalService(svc *corev1.Service, ownerRef config.OwnerRef) error {
@@ -315,7 +316,7 @@ func ReconcileKonnectivityServerService(svc *corev1.Service, ownerRef config.Own
 
 func ReconcileKonnectivityExternalRoute(route *routev1.Route, ownerRef config.OwnerRef, hostname string, defaultIngressDomain string, labelHCPRoutes bool) error {
 	ownerRef.ApplyTo(route)
-	if err := util.ReconcileExternalRoute(route, hostname, defaultIngressDomain, manifests.KonnectivityServerService(route.Namespace).Name, labelHCPRoutes); err != nil {
+	if err := netutil.ReconcileExternalRoute(route, hostname, defaultIngressDomain, manifests.KonnectivityServerService(route.Namespace).Name, labelHCPRoutes); err != nil {
 		return err
 	}
 	if route.Annotations == nil {
@@ -328,7 +329,7 @@ func ReconcileKonnectivityExternalRoute(route *routev1.Route, ownerRef config.Ow
 func ReconcileKonnectivityInternalRoute(route *routev1.Route, ownerRef config.OwnerRef) error {
 	ownerRef.ApplyTo(route)
 	// Assumes ownerRef is the HCP
-	if err := util.ReconcileInternalRoute(route, ownerRef.Reference.Name, manifests.KonnectivityServerService(route.Namespace).Name); err != nil {
+	if err := netutil.ReconcileInternalRoute(route, ownerRef.Reference.Name, manifests.KonnectivityServerService(route.Namespace).Name); err != nil {
 		return err
 	}
 	if route.Annotations == nil {

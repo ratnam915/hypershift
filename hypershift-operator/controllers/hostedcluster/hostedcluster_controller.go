@@ -62,6 +62,7 @@ import (
 	"github.com/openshift/hypershift/support/globalconfig"
 	"github.com/openshift/hypershift/support/infraid"
 	"github.com/openshift/hypershift/support/metrics"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/oidc"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/releaseinfo"
@@ -3847,7 +3848,7 @@ func (r *HostedClusterReconciler) validateAWSConfig(hc *hyperv1.HostedCluster) e
 		hyperv1.OAuthServer,
 		hyperv1.Ignition,
 	} {
-		servicePublishingStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hc, serviceType)
+		servicePublishingStrategy := netutil.ServicePublishingStrategyByTypeByHC(hc, serviceType)
 		if servicePublishingStrategy == nil {
 			errs = append(errs, fmt.Errorf("service type %v not found", serviceType))
 		}
@@ -3857,13 +3858,13 @@ func (r *HostedClusterReconciler) validateAWSConfig(hc *hyperv1.HostedCluster) e
 		}
 	}
 
-	kasPublishingStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hc, hyperv1.APIServer)
+	kasPublishingStrategy := netutil.ServicePublishingStrategyByTypeByHC(hc, hyperv1.APIServer)
 	if kasPublishingStrategy == nil {
 		errs = append(errs, fmt.Errorf("service type %v not found", hyperv1.APIServer))
 		return utilerrors.NewAggregate(errs)
 	}
 
-	if kasPublishingStrategy.Type == hyperv1.Route && !hyperutil.UseDedicatedDNSForKASByHC(hc) {
+	if kasPublishingStrategy.Type == hyperv1.Route && !netutil.UseDedicatedDNSForKASByHC(hc) {
 		errs = append(errs, fmt.Errorf("if serviceType is 'APIServer' and publishing strategy is 'Route', then hostname must be set"))
 		return utilerrors.NewAggregate(errs)
 	}
@@ -3873,7 +3874,7 @@ func (r *HostedClusterReconciler) validateAWSConfig(hc *hyperv1.HostedCluster) e
 			errs = append(errs, fmt.Errorf("service type %v with publishing strategy %v is not supported, use Route", hyperv1.APIServer, kasPublishingStrategy.Type))
 		}
 	} else {
-		if !hyperutil.UseDedicatedDNSForKASByHC(hc) && kasPublishingStrategy.Type != hyperv1.LoadBalancer {
+		if !netutil.UseDedicatedDNSForKASByHC(hc) && kasPublishingStrategy.Type != hyperv1.LoadBalancer {
 			errs = append(errs, fmt.Errorf("service type %v with publishing strategy %v is not supported, use Route or LoadBalancer", hyperv1.APIServer, kasPublishingStrategy.Type))
 		}
 	}

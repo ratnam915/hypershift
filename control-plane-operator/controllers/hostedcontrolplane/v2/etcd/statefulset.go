@@ -8,8 +8,8 @@ import (
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	component "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
-	"github.com/openshift/hypershift/support/util"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +21,7 @@ func adaptStatefulSet(cpContext component.WorkloadContext, sts *appsv1.StatefulS
 	hcp := cpContext.HCP
 	managedEtcdSpec := hcp.Spec.Etcd.Managed
 
-	ipv4, err := util.IsIPv4CIDR(hcp.Spec.Networking.ClusterNetwork[0].CIDR.String())
+	ipv4, err := netutil.IsIPv4CIDR(hcp.Spec.Networking.ClusterNetwork[0].CIDR.String())
 	if err != nil {
 		return fmt.Errorf("error checking the ClusterNetworkCIDR: %v", err)
 	}

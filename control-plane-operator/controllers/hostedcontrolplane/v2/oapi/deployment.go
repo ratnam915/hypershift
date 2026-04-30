@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	"github.com/openshift/hypershift/support/config"
 	component "github.com/openshift/hypershift/support/controlplane-component"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/util"
 
@@ -45,7 +46,7 @@ func adaptDeployment(cpContext component.WorkloadContext, deployment *appsv1.Dep
 
 	etcdHostname := "etcd-client"
 	if cpContext.HCP.Spec.Etcd.ManagementType == hyperv1.Unmanaged {
-		etcdHostname, err = util.HostFromURL(cpContext.HCP.Spec.Etcd.Unmanaged.Endpoint)
+		etcdHostname, err = netutil.HostFromURL(cpContext.HCP.Spec.Etcd.Unmanaged.Endpoint)
 		if err != nil {
 			return err
 		}

@@ -34,6 +34,7 @@ import (
 	"github.com/openshift/hypershift/support/certs"
 	"github.com/openshift/hypershift/support/conditions"
 	suppconfig "github.com/openshift/hypershift/support/config"
+	"github.com/openshift/hypershift/support/netutil"
 	"github.com/openshift/hypershift/support/podspec"
 	"github.com/openshift/hypershift/support/releaseinfo"
 	hyperutil "github.com/openshift/hypershift/support/util"
@@ -1202,7 +1203,7 @@ func EnsureAllRoutesUseHCPRouter(t *testing.T, ctx context.Context, hostClient c
 		}
 		for _, route := range routes.Items {
 			original := route.DeepCopy()
-			hyperutil.AddHCPRouteLabel(&route)
+			netutil.AddHCPRouteLabel(&route)
 			if diff := cmp.Diff(route.GetLabels(), original.GetLabels()); diff != "" {
 				t.Errorf("route %s is missing the label to use the per-HCP router: %s", route.Name, diff)
 			}
@@ -1933,7 +1934,7 @@ func EnsureGlobalPullSecret(t *testing.T, ctx context.Context, mgmtClient crclie
 			t.Skip("Skip GlobalPullSecret test for TestCreateClusterCustomConfig to avoid issues with OVN")
 		}
 
-		if !hyperutil.IsPublicHC(entryHostedCluster) {
+		if !netutil.IsPublicHC(entryHostedCluster) {
 			t.Skip("test only supported on public clusters")
 		}
 
@@ -2235,7 +2236,7 @@ func EnsureKubeAPIDNSNameCustomCert(t *testing.T, ctx context.Context, mgmtClien
 		}
 
 		g := NewWithT(t)
-		if !hyperutil.IsPublicHC(entryHostedCluster) {
+		if !netutil.IsPublicHC(entryHostedCluster) {
 			return
 		}
 
@@ -2567,7 +2568,7 @@ func EnsureKubeAPIDNSNameCustomCert(t *testing.T, ctx context.Context, mgmtClien
 }
 
 func EnsureAdmissionPolicies(t *testing.T, ctx context.Context, mgmtClient crclient.Client, hc *hyperv1.HostedCluster) {
-	if !hyperutil.IsPublicHC(hc) {
+	if !netutil.IsPublicHC(hc) {
 		return // Admission policies are only validated in public clusters does not worth to test it in private ones.
 	}
 	guestClient := WaitForGuestClient(t, ctx, mgmtClient, hc)
@@ -2897,7 +2898,7 @@ func ValidatePublicCluster(t *testing.T, ctx context.Context, client crclient.Cl
 	err := client.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hostedCluster)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to get hostedcluster")
 
-	serviceStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
+	serviceStrategy := netutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
 	g.Expect(serviceStrategy).ToNot(BeNil())
 	if serviceStrategy.Type == hyperv1.Route && serviceStrategy.Route != nil && serviceStrategy.Route.Hostname != "" {
 		g.Expect(hostedCluster.Status.ControlPlaneEndpoint.Host).To(Equal(serviceStrategy.Route.Hostname))
@@ -2948,7 +2949,7 @@ func ValidatePrivateCluster(t *testing.T, ctx context.Context, client crclient.C
 	err := client.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hostedCluster)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to get hostedcluster")
 
-	serviceStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
+	serviceStrategy := netutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
 	g.Expect(serviceStrategy).ToNot(BeNil())
 	if serviceStrategy.Route != nil && serviceStrategy.Route.Hostname != "" {
 		g.Expect(hostedCluster.Status.ControlPlaneEndpoint.Host).To(Equal(serviceStrategy.Route.Hostname))

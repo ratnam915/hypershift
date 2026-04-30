@@ -251,15 +251,28 @@ func GenerateCRDInstallTest(featureSet string) {
 		// Uninstall after validation and wait for full removal so that
 		// subsequent per-suite tests do not hit a stale CRD that is still
 		// being deleted by the API server.
-		Expect(envtest.UninstallCRDs(cfg, envtest.CRDInstallOptions{
-			CRDs: crds,
-		})).ToNot(HaveOccurred())
+		for _, crd := range crds {
+			Expect(k8sClient.Delete(ctx, crd)).To(SatisfyAny(Succeed(), WithTransform(apierrors.IsNotFound, BeTrue())))
+		}
+
 		for _, crd := range crds {
 			key := client.ObjectKeyFromObject(crd)
 			Eventually(func() bool {
+				// Check if the CRD exists
 				err := k8sClient.Get(ctx, key, &apiextensionsv1.CustomResourceDefinition{})
-				return apierrors.IsNotFound(err)
-			}, "120s", "1s").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
+				if apierrors.IsNotFound(err) {
+					return true
+				}
+
+				// Attempt to delete it if it still exists
+
+				if err := k8sClient.Delete(ctx, crd); apierrors.IsNotFound(err) {
+					return true
+				}
+
+				// Return false, the next iteration will see the CRD gone.
+				return false
+			}, "30s", "200ms").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
 		}
 	})
 }

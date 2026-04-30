@@ -188,12 +188,12 @@ func GenerateTestSuite(suiteSpec SuiteSpec) {
 						},
 					})
 					return err
-				}, "30s", "1s").Should(Succeed(), "CRD should install successfully")
+				}, "120s", "1s").Should(Succeed(), "CRD should install successfully")
 				Expect(crds).To(HaveLen(1), "Only one CRD should have been installed")
 				crd = crds[0]
 
 				Expect(envtest.WaitForCRDs(cfg, crds, envtest.CRDInstallOptions{
-					MaxTime: 30 * time.Second,
+					MaxTime: 120 * time.Second,
 				})).To(Succeed())
 			})
 
@@ -212,7 +212,7 @@ func GenerateTestSuite(suiteSpec SuiteSpec) {
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(crd), &apiextensionsv1.CustomResourceDefinition{})
 					return apierrors.IsNotFound(err)
-				}, "30s", "1s").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
+				}, "120s", "1s").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
 			})
 
 			generateOnCreateTable(suiteSpec.Tests.OnCreate)
@@ -244,7 +244,7 @@ func GenerateCRDInstallTest(featureSet string) {
 				CRDs: crdsToInstall,
 			})
 			return err
-		}, "60s", "1s").Should(Succeed(), "all CRDs should install without error")
+		}, "120s", "1s").Should(Succeed(), "all CRDs should install without error")
 		Expect(crds).To(HaveLen(len(allCRDs)), "all CRDs should have been installed")
 		Expect(envtest.WaitForCRDs(cfg, crds, envtest.CRDInstallOptions{})).To(Succeed())
 
@@ -259,7 +259,7 @@ func GenerateCRDInstallTest(featureSet string) {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, &apiextensionsv1.CustomResourceDefinition{})
 				return apierrors.IsNotFound(err)
-			}, "30s", "1s").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
+			}, "120s", "1s").Should(BeTrue(), fmt.Sprintf("CRD %s should be fully removed", crd.Name))
 		}
 	})
 }

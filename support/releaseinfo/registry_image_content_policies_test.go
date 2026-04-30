@@ -57,3 +57,41 @@ func TestProviderWithOpenShiftImageRegistryOverridesDecorator_Lookup(t *testing.
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(provider.GetMirroredReleaseImage()).To(Equal(mirroredReleaseImage))
 }
+
+func TestProviderWithOpenShiftImageRegistryOverridesDecorator_LookupWithNilRepoSetupFn(t *testing.T) {
+	g := NewWithT(t)
+
+	directImage := "quay.io/openshift-release-dev/ocp-release:4.16.13-x86_64"
+	releaseImage := &ReleaseImage{
+		ImageStream:    &imagev1.ImageStream{},
+		StreamMetadata: &CoreOSStreamMetadata{},
+	}
+
+	delegate := &RegistryMirrorProviderDecorator{
+		Delegate: &CachedProvider{
+			Inner: &RegistryClientProvider{},
+			Cache: map[string]*ReleaseImage{
+				directImage: releaseImage,
+			},
+		},
+		RegistryOverrides: map[string]string{},
+	}
+
+	// When repoSetupFn is nil it should default to registryclient.GetRepoSetup.
+	// Use an image that does not match any override so the default repoSetupFn
+	// is assigned but never called, avoiding real network calls.
+	provider := &ProviderWithOpenShiftImageRegistryOverridesDecorator{
+		Delegate: delegate,
+		OpenShiftImageRegistryOverrides: map[string][]string{
+			"no-match-source": {"no-match-mirror"},
+		},
+		// repoSetupFn intentionally nil to exercise the default fallback.
+		lock: sync.Mutex{},
+	}
+
+	pullSecret := []byte(`{"auths":{}}`)
+	result, err := provider.Lookup(t.Context(), directImage, pullSecret)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(result).To(Equal(releaseImage))
+	g.Expect(provider.GetMirroredReleaseImage()).To(BeEmpty())
+}

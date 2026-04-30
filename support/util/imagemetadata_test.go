@@ -521,6 +521,31 @@ func TestSeekOverride(t *testing.T) {
 	}
 }
 
+func TestGetMetadataGetter(t *testing.T) {
+	t.Run("When metadataGetter is nil it should return the default getMetadata function", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		provider := &RegistryClientImageMetadataProvider{}
+
+		getter := provider.getMetadataGetter()
+		g.Expect(getter).ToNot(BeNil())
+	})
+
+	t.Run("When metadataGetter is set it should return the injected function", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		called := false
+		custom := func(ctx context.Context, imageRef string, pullSecret []byte) (*dockerv1client.DockerImageConfig, []distribution.Descriptor, distribution.BlobStore, error) {
+			called = true
+			return nil, nil, nil, nil
+		}
+		provider := &RegistryClientImageMetadataProvider{metadataGetter: custom}
+
+		getter := provider.getMetadataGetter()
+		g.Expect(getter).ToNot(BeNil())
+		_, _, _, _ = getter(context.Background(), "", nil)
+		g.Expect(called).To(BeTrue())
+	})
+}
+
 func fakeOverrides() map[string][]string {
 	return map[string][]string{
 		"quay.io/openshift-release-dev/ocp-release": {

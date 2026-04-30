@@ -13,6 +13,57 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestHasAnnotationWithValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		key         string
+		value       string
+		want        bool
+	}{
+		{
+			name:        "When annotation exists with matching value it should return true",
+			annotations: map[string]string{"foo": "bar"},
+			key:         "foo",
+			value:       "bar",
+			want:        true,
+		},
+		{
+			name:        "When annotation exists with different value it should return false",
+			annotations: map[string]string{"foo": "baz"},
+			key:         "foo",
+			value:       "bar",
+			want:        false,
+		},
+		{
+			name:        "When annotation does not exist it should return false",
+			annotations: map[string]string{"other": "value"},
+			key:         "foo",
+			value:       "bar",
+			want:        false,
+		},
+		{
+			name:        "When annotations map is nil it should return false",
+			annotations: nil,
+			key:         "foo",
+			value:       "bar",
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			obj := &metav1.ObjectMeta{Annotations: tt.annotations}
+			if got := HasAnnotationWithValue(obj, tt.key, tt.value); got != tt.want {
+				t.Fatalf("HasAnnotationWithValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHostedClusterFromAnnotation(t *testing.T) {
 	t.Parallel()
 

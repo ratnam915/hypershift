@@ -16,6 +16,9 @@ jobs:
         with:
           persist-credentials: false
       - run: make generate update
+      - run: make staticcheck
+      - run: make fmt
+      - run: make vet
       - run: |
           git update-index --refresh
           git diff-index --cached --quiet --ignore-submodules HEAD --
@@ -27,6 +30,3 @@ jobs:
             echo "$STATUS"
             exit 1
           fi
-      - run: make staticcheck
-      - run: make fmt
-      - run: make vet

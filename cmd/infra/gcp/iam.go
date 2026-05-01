@@ -214,38 +214,47 @@ func (c *IAMManager) CreateOIDCProvider(ctx context.Context) (string, string, er
 	providerID := c.formatProviderID()
 	c.logger.Info("Creating OIDC Provider", "providerID", providerID, "poolID", c.formatPoolID())
 
-	jwksData, err := os.ReadFile(c.jwksFile)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to read JWKS file: %w", err)
-	}
-	// Basic JSON validation
-	var js map[string]any
-	if err := json.Unmarshal(jwksData, &js); err != nil {
-		return "", "", fmt.Errorf("JWKS file contains invalid JSON: %w", err)
+	// When JWKS file is provided, embed the public keys inline in the provider.
+	// When omitted, GCP fetches the keys from the issuer URL's OIDC discovery endpoint.
+	var (
+		jwksJson string
+		err      error
+	)
+	if c.jwksFile != "" {
+		jwksJson, err = loadAndValidateJWKS(c.jwksFile)
+		if err != nil {
+			return "", "", err
+		}
+		c.logger.Info("Using inline JWKS for OIDC provider")
+	} else {
+		c.logger.Info("No JWKS file provided; GCP will fetch keys from issuer URL")
 	}
 
+	issuerURI := c.formatIssuerUri()
+	c.logger.Info("Using OIDC issuer URI", "issuerURI", issuerURI)
+
 	providerAudience := c.formatProviderAudience()
+	oidc := &iam.Oidc{
+		AllowedAudiences: []string{defaultOIDCAudience},
+		IssuerUri:        issuerURI,
+		JwksJson:         jwksJson,
+	}
+	if jwksJson == "" {
+		oidc.ForceSendFields = []string{"JwksJson"}
+	}
+
 	provider := &iam.WorkloadIdentityPoolProvider{
 		Description: fmt.Sprintf("OIDC Provider for HyperShift cluster %s", c.infraID),
 		DisplayName: providerID,
 		Disabled:    false,
-		// JWKS is sufficient for the provider;
-		// Valid OIDC issuer URL option is only relevant when JWKS is not provided.
-		// In this case, the issuer URL will be derived from infraID if not provided.
-		Oidc: &iam.Oidc{
-			AllowedAudiences: []string{defaultOIDCAudience},
-			IssuerUri:        c.formatIssuerUri(),
-			JwksJson:         string(jwksData),
-		},
+		Oidc:        oidc,
 		AttributeMapping: map[string]string{
 			"google.subject": "assertion.sub",
 		},
 	}
 	parent := c.formatPoolParent()
-	err = c.createWorkloadIdentityProvider(ctx, parent, providerID, provider)
-	if err != nil {
+	if err := c.createWorkloadIdentityProvider(ctx, parent, providerID, provider); err != nil {
 		if isAlreadyExistsError(err) {
-			// Provider exists, check and fix its state/config if needed
 			c.logger.Info("OIDC Provider already exists, checking state and configuration", "providerID", providerID)
 			return c.ensureProviderUsable(ctx, providerID, provider, providerAudience)
 		}
@@ -635,10 +644,34 @@ func (c *IAMManager) waitOperation(ctx context.Context, opName string) error {
 	}
 }
 
+// loadAndValidateJWKS reads a JWKS file from disk, validates that it contains
+// well-formed JSON, and returns the raw content as a string.
+func loadAndValidateJWKS(filePath string) (string, error) {
+	jwksData, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read JWKS file: %w", err)
+	}
+	var js map[string]any
+	if err := json.Unmarshal(jwksData, &js); err != nil {
+		return "", fmt.Errorf("JWKS file contains invalid JSON: %w", err)
+	}
+	return string(jwksData), nil
+}
+
 // compareJWKS performs a semantic comparison of two JWKS JSON strings.
 // It parses both as JSON and compares the resulting structures, ignoring
 // differences in whitespace, key ordering, or formatting.
 func (c *IAMManager) compareJWKS(jwks1, jwks2 string) bool {
+	jwks1 = strings.TrimSpace(jwks1)
+	jwks2 = strings.TrimSpace(jwks2)
+
+	if jwks1 == "" && jwks2 == "" {
+		return true
+	}
+	if jwks1 == "" || jwks2 == "" {
+		return false
+	}
+
 	var obj1, obj2 map[string]any
 
 	if err := json.Unmarshal([]byte(jwks1), &obj1); err != nil {

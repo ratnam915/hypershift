@@ -25,6 +25,19 @@ import (
 )
 
 func TestOpenIDProviderConversion(t *testing.T) {
+	// Pre-populate caches to avoid network calls to accounts.google.com and oauth2.googleapis.com.
+	openIDURLsCache.Set("https://accounts.google.com/.well-known/openid-configuration", &osinv1.OpenIDURLs{
+		Authorize: "https://accounts.google.com/o/oauth2/v2/auth",
+		Token:     "https://oauth2.googleapis.com/token",
+		UserInfo:  "https://openidconnect.googleapis.com/v1/userinfo",
+	}, openIDURLsTTL)
+	// Pre-populate the OIDC password grant check cache to avoid the token endpoint call.
+	oidcPasswordCheckCache.Set("1", false, oidcPasswordTTL)
+	t.Cleanup(func() {
+		openIDURLsCache.Delete("https://accounts.google.com/.well-known/openid-configuration")
+		oidcPasswordCheckCache.Delete("1")
+	})
+
 	// Define common inputs
 	groupsInput := []configv1.OpenIDClaim{"groups"}
 	volumeMountInfo := &IDPVolumeMountInfo{
@@ -37,8 +50,9 @@ func TestOpenIDProviderConversion(t *testing.T) {
 	const secretName = "secret1"
 	idpSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
+			Name:            secretName,
+			Namespace:       namespace,
+			ResourceVersion: "1",
 		},
 		Immutable: nil,
 		Data: map[string][]byte{

@@ -26,6 +26,7 @@ import (
 	karpentercpov2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/karpenter"
 	karpenteroperatorcpov2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/karpenteroperator"
 	"github.com/openshift/hypershift/hypershift-operator/controllers/manifests"
+	npmetrics "github.com/openshift/hypershift/hypershift-operator/controllers/nodepool/metrics"
 	karpenterassets "github.com/openshift/hypershift/karpenter-operator/controllers/karpenter/assets"
 	karpenterutil "github.com/openshift/hypershift/support/karpenter"
 	"github.com/openshift/hypershift/support/releaseinfo"
@@ -85,7 +86,7 @@ func TestKarpenter(t *testing.T) {
 
 		// This test intentionally leaves dangling resources so cluster teardown must
 		// force-terminate nodes despite a blocking PDB. It must run last.
-		t.Run("Karpenter consolidation and cluster deletion with blocking PDB", testConsolidationAndPDB(ctx, guestClient, hostedCluster))
+		t.Run("Billing vCPUs, consolidation, and cluster deletion with blocking PDB", testBillingConsolidationAndPDB(ctx, mgtClient, guestClient, hostedCluster))
 	}).Execute(&clusterOpts, globalOpts.Platform, globalOpts.ArtifactDir, "karpenter", globalOpts.ServiceAccountSigningKey)
 }
 
@@ -130,6 +131,9 @@ func testKarpenterPlumbing(ctx context.Context, mgtClient, guestClient crclient.
 			return true, nil
 		})
 		g.Expect(err).NotTo(HaveOccurred(), "failed to validate Karpenter metrics")
+
+		t.Log("Checking AutoNode vCPUs status (no Karpenter nodes provisioned)")
+		waitForAutoNodeStatusVCPUs(t, ctx, mgtClient, hostedCluster, 0)
 
 		t.Log("Checking Karpenter version is logged")
 		cfg, err := e2eutil.GetConfig()
@@ -1233,9 +1237,16 @@ func testAutoNodeLifecycle(ctx context.Context, mgtClient crclient.Client, hoste
 	}
 }
 
-func testConsolidationAndPDB(ctx context.Context, guestClient crclient.Client, hostedCluster *hyperv1.HostedCluster) func(t *testing.T) {
+func testBillingConsolidationAndPDB(ctx context.Context, mgtClient, guestClient crclient.Client, hostedCluster *hyperv1.HostedCluster) func(t *testing.T) {
 	return func(t *testing.T) {
 		g := NewWithT(t)
+
+		// Before any Karpenter nodes are provisioned, Karpenter vCPUs should be 0.
+		waitForAutoNodeStatusVCPUs(t, ctx, mgtClient, hostedCluster, 0)
+
+		baseline, found := getVCPUsMetric(t, ctx, mgtClient, hostedCluster)
+		g.Expect(found).To(BeTrue(), "billing metric should exist before Karpenter nodes are provisioned")
+		t.Logf("Baseline billing metric vCPUs from native NodePools: %d", baseline)
 
 		karpenterNodePool := baseNodePool("on-demand", "default")
 		workLoads := testWorkload("web-app", 2, map[string]string{
@@ -1251,8 +1262,13 @@ func testConsolidationAndPDB(ctx context.Context, guestClient crclient.Client, h
 		t.Logf("Created workloads with 2 replicas")
 
 		_ = e2eutil.WaitForReadyNodesByLabels(t, ctx, guestClient, hostedCluster.Spec.Platform.Type, 2, nodeLabels)
-		t.Logf("Both nodes ready, scaling workload to 1 replica to verify deprovisioning and consolidation")
+		t.Logf("Both nodes ready, validating billing vCPUs")
 
+		// t3.xlarge = 4 vCPUs; 2 nodes = 8 Karpenter vCPUs on top of baseline
+		waitForAutoNodeStatusVCPUs(t, ctx, mgtClient, hostedCluster, 8)
+		waitForBillingMetricVCPUs(t, ctx, mgtClient, hostedCluster, baseline+8)
+
+		t.Logf("Scaling workload to 1 replica to verify deprovisioning and consolidation")
 		err := e2eutil.UpdateObject(t, ctx, guestClient, workLoads, func(obj *appsv1.Deployment) {
 			obj.Spec.Replicas = ptr.To(int32(1))
 		})
@@ -1260,6 +1276,10 @@ func testConsolidationAndPDB(ctx context.Context, guestClient crclient.Client, h
 
 		_ = e2eutil.WaitForReadyNodesByLabels(t, ctx, guestClient, hostedCluster.Spec.Platform.Type, 1, nodeLabels)
 		t.Logf("Karpenter consolidated the extra node")
+
+		// t3.xlarge = 4 vCPUs; 1 node = 4 Karpenter vCPUs on top of baseline
+		waitForAutoNodeStatusVCPUs(t, ctx, mgtClient, hostedCluster, 4)
+		waitForBillingMetricVCPUs(t, ctx, mgtClient, hostedCluster, baseline+4)
 
 		// Create a blocking PDB and leave everything dangling so cluster teardown
 		// must force-terminate nodes despite a blocking PDB.
@@ -1414,6 +1434,91 @@ func waitForNodeClaimDrifted(t *testing.T, ctx context.Context, client crclient.
 		},
 		e2eutil.WithTimeout(waitTimeout),
 	)
+}
+
+// waitForAutoNodeStatusVCPUs polls until HostedCluster.Status.AutoNode.VCPUs
+// converges to the expected value. This checks only the status field (Karpenter-only vCPUs),
+// not the billing metric.
+func waitForAutoNodeStatusVCPUs(t *testing.T, ctx context.Context, mgtClient crclient.Client, hostedCluster *hyperv1.HostedCluster, expected int32) {
+	t.Helper()
+
+	t.Logf("Validating AutoNode.VCPUs converges to %d", expected)
+	e2eutil.EventuallyObject(t, ctx,
+		fmt.Sprintf("HostedCluster %s/%s AutoNode.VCPUs=%d", hostedCluster.Namespace, hostedCluster.Name, expected),
+		func(ctx context.Context) (*hyperv1.HostedCluster, error) {
+			hc := &hyperv1.HostedCluster{}
+			err := mgtClient.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hc)
+			return hc, err
+		},
+		[]e2eutil.Predicate[*hyperv1.HostedCluster]{
+			func(hc *hyperv1.HostedCluster) (bool, string, error) {
+				if hc.Status.AutoNode.VCPUs == nil {
+					return false, "AutoNode.VCPUs is nil", nil
+				}
+				actual := *hc.Status.AutoNode.VCPUs
+				if actual != expected {
+					return false, fmt.Sprintf("AutoNode.VCPUs=%d, want %d", actual, expected), nil
+				}
+				return true, fmt.Sprintf("AutoNode.VCPUs=%d", actual), nil
+			},
+		},
+		e2eutil.WithTimeout(1*time.Minute),
+	)
+}
+
+// waitForBillingMetricVCPUs polls until the hypershift_cluster_vcpus metric
+// converges to the expected total (native + Karpenter).
+func waitForBillingMetricVCPUs(t *testing.T, ctx context.Context, mgtClient crclient.Client, hostedCluster *hyperv1.HostedCluster, expectedTotal int32) {
+	t.Helper()
+	g := NewWithT(t)
+
+	t.Logf("Validating %s converges to %d", npmetrics.VCpusCountByHClusterMetricName, expectedTotal)
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+		actual, found := getVCPUsMetric(t, ctx, mgtClient, hostedCluster)
+		if !found {
+			t.Logf("metric %s not found for cluster %s/%s", npmetrics.VCpusCountByHClusterMetricName, hostedCluster.Namespace, hostedCluster.Name)
+			return false, nil
+		}
+		if actual == expectedTotal {
+			t.Logf("%s=%d for cluster %s/%s", npmetrics.VCpusCountByHClusterMetricName, actual, hostedCluster.Namespace, hostedCluster.Name)
+			return true, nil
+		}
+		t.Logf("%s=%d, want %d for cluster %s/%s", npmetrics.VCpusCountByHClusterMetricName, actual, expectedTotal, hostedCluster.Namespace, hostedCluster.Name)
+		return false, nil
+	})
+	g.Expect(err).NotTo(HaveOccurred(), "failed to validate %s metric", npmetrics.VCpusCountByHClusterMetricName)
+}
+
+// getVCPUsMetric reads the current hypershift_cluster_vcpus metric for the given cluster.
+func getVCPUsMetric(t *testing.T, ctx context.Context, mgtClient crclient.Client, hostedCluster *hyperv1.HostedCluster) (int32, bool) {
+	t.Helper()
+
+	mf, err := e2eutil.GetMetricsFromPod(ctx, mgtClient, "operator", "operator", "hypershift", "9000")
+	if err != nil {
+		t.Logf("unable to get metrics from hypershift-operator: %v", err)
+		return 0, false
+	}
+
+	family, ok := mf[npmetrics.VCpusCountByHClusterMetricName]
+	if !ok {
+		return 0, false
+	}
+
+	for _, m := range family.Metric {
+		var matchedName, matchedNamespace bool
+		for _, l := range m.GetLabel() {
+			if l.GetName() == "name" && l.GetValue() == hostedCluster.Name {
+				matchedName = true
+			}
+			if l.GetName() == "namespace" && l.GetValue() == hostedCluster.Namespace {
+				matchedNamespace = true
+			}
+		}
+		if matchedName && matchedNamespace {
+			return int32(m.GetGauge().GetValue()), true
+		}
+	}
+	return 0, false
 }
 
 func baseNodePool(name, nodeClassName string) *karpenterv1.NodePool {

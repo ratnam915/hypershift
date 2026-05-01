@@ -34919,6 +34919,22 @@ int32
 This represents what Karpenter intends to provision, whether or not the node object exists yet.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>vcpus</code></br>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>vcpus is the total number of virtual CPUs across all Karpenter-managed nodes
+that have registered and reported capacity. This is the sum of CPU capacity
+from each NodeClaim whose corresponding node exists (status.nodeName is set).
+This value is 0 when no Karpenter nodes are provisioned.
+Used by the metrics collector for billing aggregation.</p>
+</td>
+</tr>
 </tbody>
 </table>
 ###AvailabilityPolicy { #hypershift.openshift.io/v1beta1.AvailabilityPolicy }

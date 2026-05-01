@@ -146,12 +146,34 @@ func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, man
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
+	// NodeClaim predicate: fire on create/delete (count changes) and also when
+	// CPU capacity changes (for vCPU billing). Capacity is populated after the
+	// node registers, so we need updates for that transition.
+	nodeClaimPredicate := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool { return true },
+		DeleteFunc: func(e event.DeleteEvent) bool { return true },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNC, ok1 := e.ObjectOld.(*karpenterv1.NodeClaim)
+			newNC, ok2 := e.ObjectNew.(*karpenterv1.NodeClaim)
+			if !ok1 || !ok2 {
+				return false
+			}
+			oldCPU := oldNC.Status.Capacity[corev1.ResourceCPU]
+			newCPU := newNC.Status.Capacity[corev1.ResourceCPU]
+			if !oldCPU.Equal(newCPU) {
+				return true
+			}
+			return oldNC.Status.NodeName != newNC.Status.NodeName
+		},
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
 	// Watch NodeClaims guest side to trigger reconcile when NodeClaims change.
 	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &karpenterv1.NodeClaim{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []ctrl.Request {
 			return []ctrl.Request{{NamespacedName: client.ObjectKey{Namespace: r.Namespace}}}
 		}),
-		countChangePredicate,
+		nodeClaimPredicate,
 	)); err != nil {
 		return fmt.Errorf("failed to watch NodeClaims: %w", err)
 	}
@@ -332,8 +354,10 @@ func (r *Reconciler) reconcileAutoNodeStatus(ctx context.Context, hcp *hyperv1.H
 		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 
+	liveNodes := make(map[string]struct{}, len(nodes.Items))
 	var karpenterNodeCount int32
 	for i := range nodes.Items {
+		liveNodes[nodes.Items[i].Name] = struct{}{}
 		if _, hasLabel := nodes.Items[i].Labels[karpenterv1.NodePoolLabelKey]; hasLabel {
 			karpenterNodeCount++
 		}
@@ -346,11 +370,14 @@ func (r *Reconciler) reconcileAutoNodeStatus(ctx context.Context, hcp *hyperv1.H
 		return fmt.Errorf("failed to list NodeClaims: %w", err)
 	}
 
+	vcpus := sumNodeClaimVCPUs(nodeClaims.Items, liveNodes)
+
 	statusCfg := hypershiftv1beta1applyconfigurations.HostedControlPlaneStatus().
 		WithAutoNode(
 			hypershiftv1beta1applyconfigurations.AutoNodeStatus().
 				WithNodeCount(karpenterNodeCount).
-				WithNodeClaimCount(int32(len(nodeClaims.Items))),
+				WithNodeClaimCount(int32(len(nodeClaims.Items))).
+				WithVCPUs(vcpus),
 		)
 	cfg := hypershiftv1beta1applyconfigurations.HostedControlPlane(hcp.Name, hcp.Namespace)
 	cfg.Status = statusCfg
@@ -368,6 +395,23 @@ func (r *Reconciler) reconcileAutoNodeStatus(ctx context.Context, hcp *hyperv1.H
 		return fmt.Errorf("failed to apply AutoNode status: %w", err)
 	}
 	return nil
+}
+
+// sumNodeClaimVCPUs returns the total vCPU count across NodeClaims whose
+// backing Node still exists in the cluster and has reported CPU capacity.
+// The NodeClaim is the authoritative record of Karpenter ownership.
+func sumNodeClaimVCPUs(nodeClaims []karpenterv1.NodeClaim, liveNodes map[string]struct{}) int32 {
+	var total int64
+	for i := range nodeClaims {
+		nc := &nodeClaims[i]
+		if _, ok := liveNodes[nc.Status.NodeName]; !ok {
+			continue
+		}
+		if cpu, ok := nc.Status.Capacity[corev1.ResourceCPU]; ok {
+			total += cpu.Value()
+		}
+	}
+	return int32(total)
 }
 
 // reconcileCRDs reconcile the Karpenter CRDs, if onlyCreate is true it uses an only write non cached client.
